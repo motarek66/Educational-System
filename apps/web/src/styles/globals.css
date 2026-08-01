@@ -1,0 +1,199 @@
+@import './tokens.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-family-base);
+  background: var(--surface-page);
+  color: var(--text-primary);
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.ltr-value {
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: left;
+}
+
+.page-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 2vw, 2rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.page-subtitle {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  margin: var(--space-1) 0 0;
+}
+
+.app-card {
+  background: var(--surface-card);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+}
+
+.app-card--outlined {
+  border-color: var(--border-subtle);
+}
+
+.app-button {
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 0.625rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.app-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.app-button--primary {
+  color: #fff;
+  background: var(--color-primary-500);
+}
+
+.app-button--primary:hover:not(:disabled) {
+  background: var(--color-primary-600);
+}
+
+.app-button--secondary {
+  color: var(--color-primary-700);
+  background: var(--color-primary-50);
+}
+
+.app-button--secondary:hover:not(:disabled) {
+  background: var(--color-primary-100);
+}
+
+.app-button--ghost {
+  color: var(--text-primary);
+  background: transparent;
+  border-color: var(--border-subtle);
+}
+
+.app-button--danger {
+  color: var(--color-danger-500);
+  background: var(--color-danger-50);
+}
+
+.form-control,
+.form-select {
+  min-height: 46px;
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  background-color: #fff;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--color-primary-400);
+  box-shadow: var(--focus-ring);
+}
+
+.form-label {
+  margin-bottom: 0.4rem;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-border-color: var(--color-gray-100);
+  margin-bottom: 0;
+}
+
+.table > :not(caption) > * > * {
+  padding: 0.9rem 0.75rem;
+  vertical-align: middle;
+}
+
+.table thead th {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  background: var(--surface-subtle);
+  border-bottom: 0;
+}
+
+.badge-soft {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 28px;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.badge-soft--success { background: var(--color-success-50); color: var(--color-success-500); }
+.badge-soft--warning { background: var(--color-warning-50); color: #a16600; }
+.badge-soft--danger { background: var(--color-danger-50); color: var(--color-danger-500); }
+.badge-soft--info { background: var(--color-info-50); color: var(--color-info-500); }
+.badge-soft--neutral { background: var(--color-gray-100); color: var(--color-gray-600); }
+.badge-soft--primary { background: var(--color-primary-50); color: var(--color-primary-700); }
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-gray-100);
+  border-radius: var(--radius-sm);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.65), transparent);
+  animation: skeleton 1.2s infinite;
+}
+
+@keyframes skeleton {
+  to { transform: translateX(-100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

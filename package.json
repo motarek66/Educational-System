@@ -1,0 +1,30 @@
+{
+  "name": "student-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @edu/api --filter @edu/web dev",
+    "dev:web": "pnpm --filter @edu/web dev",
+    "dev:api": "pnpm --filter @edu/api dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter @edu/web test:e2e && pnpm --filter @edu/api test:e2e",
+    "format": "prettier --write .",
+    "db:generate": "pnpm --filter @edu/api prisma:generate",
+    "db:migrate": "pnpm --filter @edu/api prisma:migrate",
+    "db:seed": "pnpm --filter @edu/api prisma:seed",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "check:source": "node scripts/source-check.mjs"
+  },
+  "devDependencies": {
+    "prettier": "3.4.2",
+    "typescript": "5.8.3"
+  }
+}

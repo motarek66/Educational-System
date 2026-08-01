@@ -1,0 +1,622 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  INVITED
+}
+
+enum AcademicYearStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum CenterStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+  WITHDRAWN
+  SUSPENDED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  TRANSFERRED
+  COMPLETED
+  WITHDRAWN
+}
+
+enum LessonStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  EXCUSED
+  PARTIAL
+}
+
+enum AttendanceMethod {
+  QR
+  CODE
+  MANUAL
+  IMPORT
+}
+
+enum ExamType {
+  QUIZ
+  HOMEWORK
+  WEEKLY
+  MONTHLY
+  MIDTERM
+  FINAL
+  OTHER
+}
+
+enum ExamStatus {
+  DRAFT
+  OPEN_FOR_GRADING
+  PUBLISHED
+  LOCKED
+  CANCELLED
+}
+
+enum GradeStatus {
+  GRADED
+  ABSENT
+  EXCUSED
+  NOT_SUBMITTED
+}
+
+enum GuardianRelationship {
+  FATHER
+  MOTHER
+  BROTHER
+  SISTER
+  OTHER
+}
+
+enum ExportStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+enum ImportStatus {
+  UPLOADED
+  VALIDATING
+  READY
+  IMPORTING
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
+model Organization {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  slug         String   @unique
+  logoUrl      String?
+  timezone     String   @default("Africa/Cairo")
+  locale       String   @default("ar-EG")
+  settingsJson Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users            User[]
+  roles            Role[]
+  academicYears    AcademicYear[]
+  centers          Center[]
+  students         Student[]
+  guardians        Guardian[]
+  profiles         StudentAcademicProfile[]
+  enrollments      Enrollment[]
+  lessons          Lesson[]
+  attendance       AttendanceRecord[]
+  exams            Exam[]
+  grades           Grade[]
+  auditLogs        AuditLog[]
+  exportJobs       ExportJob[]
+  importJobs       ImportJob[]
+  whatsappTemplates WhatsAppTemplate[]
+  codeSequences    CodeSequence[]
+}
+
+model User {
+  id                 String     @id @default(uuid()) @db.Uuid
+  organizationId     String     @db.Uuid
+  fullName           String
+  email              String?
+  phoneE164          String
+  passwordHash       String
+  status             UserStatus @default(ACTIVE)
+  lastLoginAt        DateTime?
+  failedLoginCount   Int        @default(0)
+  lockedUntil        DateTime?
+  mustChangePassword Boolean    @default(false)
+  createdById        String?    @db.Uuid
+  archivedAt         DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  organization  Organization      @relation(fields: [organizationId], references: [id])
+  roles         UserRole[]
+  centerScopes  UserCenterScope[]
+  sessions      AuthSession[]
+  auditLogs     AuditLog[]
+  openedLessons Lesson[]           @relation("LessonOpenedBy")
+  closedLessons Lesson[]           @relation("LessonClosedBy")
+  attendance    AttendanceRecord[] @relation("AttendanceRecordedBy")
+  createdExams  Exam[]             @relation("ExamCreatedBy")
+  enteredGrades Grade[]            @relation("GradeEnteredBy")
+  gradeChanges  GradeChangeHistory[]
+
+  @@unique([organizationId, email])
+  @@unique([organizationId, phoneE164])
+  @@index([organizationId, status])
+}
+
+model Role {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  name           String
+  description    String?
+  isSystemRole   Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  users        UserRole[]
+  permissions  RolePermission[]
+
+  @@unique([organizationId, name])
+}
+
+model Permission {
+  id          String @id @default(uuid()) @db.Uuid
+  key         String @unique
+  description String
+  roles       RolePermission[]
+}
+
+model UserRole {
+  userId String @db.Uuid
+  roleId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String     @db.Uuid
+  permissionId String     @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model UserCenterScope {
+  userId   String @db.Uuid
+  centerId String @db.Uuid
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  center   Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  @@id([userId, centerId])
+}
+
+model AuthSession {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @db.Uuid
+  refreshTokenHash String
+  deviceName       String?
+  userAgent        String?
+  ipHash           String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  lastUsedAt       DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+}
+
+model AcademicYear {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String             @db.Uuid
+  name           String
+  codeYear       String
+  startDate      DateTime           @db.Date
+  endDate        DateTime           @db.Date
+  status         AcademicYearStatus @default(DRAFT)
+  isDefault      Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization              @relation(fields: [organizationId], references: [id])
+  profiles     StudentAcademicProfile[]
+  enrollments  Enrollment[]
+  lessons      Lesson[]
+  exams        Exam[]
+  codeSequences CodeSequence[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, status])
+}
+
+model Center {
+  id                  String       @id @default(uuid()) @db.Uuid
+  organizationId      String       @db.Uuid
+  name                String
+  code                String
+  address             String?
+  contactPhoneE164    String?
+  managerName         String?
+  notes               String?
+  status              CenterStatus @default(ACTIVE)
+  archivedAt          DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  enrollments  Enrollment[]
+  lessons      Lesson[]
+  attendanceOrigin AttendanceRecord[] @relation("AttendanceOriginalCenter")
+  examAssignments ExamCenterAssignment[]
+  userScopes   UserCenterScope[]
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, code])
+  @@index([organizationId, status])
+}
+
+model Student {
+  id                      String        @id @default(uuid()) @db.Uuid
+  organizationId          String        @db.Uuid
+  fullName                String
+  normalizedName          String
+  gender                  String?
+  birthDate               DateTime?     @db.Date
+  studentPhoneE164        String?
+  schoolName              String?
+  address                 String?
+  photoUrl                String?
+  medicalOrSensitiveNotes String?
+  generalNotes            String?
+  status                  StudentStatus @default(ACTIVE)
+  createdById             String?       @db.Uuid
+  archivedAt              DateTime?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  organization Organization             @relation(fields: [organizationId], references: [id])
+  profiles     StudentAcademicProfile[]
+  guardians    StudentGuardian[]
+  attendance   AttendanceRecord[]
+  grades       Grade[]
+
+  @@index([organizationId, normalizedName])
+  @@index([organizationId, studentPhoneE164])
+  @@index([organizationId, status])
+}
+
+model Guardian {
+  id                     String   @id @default(uuid()) @db.Uuid
+  organizationId         String   @db.Uuid
+  fullName               String
+  phoneE164              String
+  whatsappPhoneE164      String?
+  email                  String?
+  preferredContactMethod String?
+  notes                  String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  students     StudentGuardian[]
+
+  @@index([organizationId, phoneE164])
+  @@index([organizationId, whatsappPhoneE164])
+}
+
+model StudentGuardian {
+  studentId                 String               @db.Uuid
+  guardianId                String               @db.Uuid
+  relationship              GuardianRelationship
+  isPrimary                 Boolean              @default(false)
+  canReceiveResults         Boolean              @default(true)
+  canReceiveAttendanceAlerts Boolean             @default(true)
+
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, guardianId])
+}
+
+model StudentAcademicProfile {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  studentId      String   @db.Uuid
+  academicYearId String   @db.Uuid
+  studentCode    String
+  qrTokenHash    String
+  qrVersion      Int      @default(1)
+  qrRotatedAt    DateTime?
+  gradeLevel     String
+  status         String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  student      Student      @relation(fields: [studentId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  enrollments  Enrollment[]
+
+  @@unique([organizationId, academicYearId, studentCode])
+  @@unique([studentId, academicYearId])
+  @@index([organizationId, qrTokenHash])
+}
+
+model CodeSequence {
+  organizationId String @db.Uuid
+  academicYearId String @db.Uuid
+  entityType      String
+  lastValue       Int    @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  @@id([organizationId, academicYearId, entityType])
+}
+
+model Enrollment {
+  id                       String           @id @default(uuid()) @db.Uuid
+  organizationId           String           @db.Uuid
+  academicYearId           String           @db.Uuid
+  studentAcademicProfileId String           @db.Uuid
+  centerId                 String           @db.Uuid
+  startDate                DateTime         @db.Date
+  endDate                  DateTime?        @db.Date
+  status                   EnrollmentStatus @default(ACTIVE)
+  isPrimary                Boolean          @default(true)
+  transferReason           String?
+  createdById              String?          @db.Uuid
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+
+  organization Organization           @relation(fields: [organizationId], references: [id])
+  academicYear AcademicYear           @relation(fields: [academicYearId], references: [id])
+  profile      StudentAcademicProfile @relation(fields: [studentAcademicProfileId], references: [id])
+  center       Center                 @relation(fields: [centerId], references: [id])
+  attendance   AttendanceRecord[]
+  grades       Grade[]
+
+  @@index([organizationId, centerId, status])
+}
+
+model Lesson {
+  id               String       @id @default(uuid()) @db.Uuid
+  organizationId   String       @db.Uuid
+  academicYearId   String       @db.Uuid
+  centerId         String       @db.Uuid
+  weeklySlotKey    String?
+  title            String?
+  lessonDate       DateTime     @db.Date
+  startsAt         DateTime
+  endsAt           DateTime
+  lateAfterMinutes Int          @default(15)
+  status           LessonStatus @default(DRAFT)
+  openedById       String?      @db.Uuid
+  openedAt         DateTime?
+  closedById       String?      @db.Uuid
+  closedAt         DateTime?
+  notes            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  academicYear AcademicYear       @relation(fields: [academicYearId], references: [id])
+  center       Center             @relation(fields: [centerId], references: [id])
+  openedBy     User?              @relation("LessonOpenedBy", fields: [openedById], references: [id])
+  closedBy     User?              @relation("LessonClosedBy", fields: [closedById], references: [id])
+  attendance   AttendanceRecord[]
+
+  @@index([organizationId, centerId, lessonDate, status])
+  @@unique([organizationId, academicYearId, centerId, weeklySlotKey])
+}
+
+model AttendanceRecord {
+  id               String           @id @default(uuid()) @db.Uuid
+  organizationId   String           @db.Uuid
+  lessonId         String           @db.Uuid
+  enrollmentId     String           @db.Uuid
+  studentId        String           @db.Uuid
+  status           AttendanceStatus
+  checkInAt        DateTime?
+  method           AttendanceMethod
+  recordedById     String           @db.Uuid
+  correctionReason String?
+  isGuestAttendance Boolean         @default(false)
+  originalCenterId String?          @db.Uuid
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  lesson        Lesson       @relation(fields: [lessonId], references: [id])
+  enrollment    Enrollment   @relation(fields: [enrollmentId], references: [id])
+  student       Student      @relation(fields: [studentId], references: [id])
+  recordedBy    User         @relation("AttendanceRecordedBy", fields: [recordedById], references: [id])
+  originalCenter Center?     @relation("AttendanceOriginalCenter", fields: [originalCenterId], references: [id])
+
+  @@unique([lessonId, enrollmentId])
+  @@index([organizationId, lessonId, status])
+  @@index([organizationId, studentId, status])
+}
+
+model Exam {
+  id             String     @id @default(uuid()) @db.Uuid
+  organizationId String     @db.Uuid
+  academicYearId String     @db.Uuid
+  name           String
+  type           ExamType
+  examDate       DateTime   @db.Date
+  maxScore       Decimal    @db.Decimal(8, 2)
+  passScore      Decimal?   @db.Decimal(8, 2)
+  status         ExamStatus @default(DRAFT)
+  notes          String?
+  createdById    String     @db.Uuid
+  publishedAt    DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  academicYear AcademicYear     @relation(fields: [academicYearId], references: [id])
+  createdBy    User             @relation("ExamCreatedBy", fields: [createdById], references: [id])
+  assignments  ExamCenterAssignment[]
+  grades       Grade[]
+
+  @@index([organizationId, examDate, status])
+}
+
+model ExamCenterAssignment {
+  examId   String @db.Uuid
+  centerId String @db.Uuid
+  exam     Exam   @relation(fields: [examId], references: [id], onDelete: Cascade)
+  center   Center @relation(fields: [centerId], references: [id])
+
+  @@id([examId, centerId])
+}
+
+model Grade {
+  id             String      @id @default(uuid()) @db.Uuid
+  organizationId String      @db.Uuid
+  examId         String      @db.Uuid
+  enrollmentId   String      @db.Uuid
+  studentId      String      @db.Uuid
+  score          Decimal?    @db.Decimal(8, 2)
+  status         GradeStatus @default(NOT_SUBMITTED)
+  percentage     Decimal?    @db.Decimal(6, 2)
+  feedback       String?
+  enteredById    String      @db.Uuid
+  publishedAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  exam         Exam                 @relation(fields: [examId], references: [id])
+  enrollment   Enrollment           @relation(fields: [enrollmentId], references: [id])
+  student      Student              @relation(fields: [studentId], references: [id])
+  enteredBy    User                 @relation("GradeEnteredBy", fields: [enteredById], references: [id])
+  history      GradeChangeHistory[]
+
+  @@unique([examId, enrollmentId])
+  @@index([organizationId, examId, studentId])
+}
+
+model GradeChangeHistory {
+  id        String      @id @default(uuid()) @db.Uuid
+  gradeId   String      @db.Uuid
+  oldScore  Decimal?    @db.Decimal(8, 2)
+  newScore  Decimal?    @db.Decimal(8, 2)
+  oldStatus GradeStatus
+  newStatus GradeStatus
+  reason    String
+  changedById String    @db.Uuid
+  changedAt DateTime    @default(now())
+
+  grade     Grade @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  changedBy User  @relation(fields: [changedById], references: [id])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  actorUserId    String?  @db.Uuid
+  action         String
+  entityType     String
+  entityId       String?
+  beforeJson     Json?
+  afterJson      Json?
+  metadataJson   Json?
+  requestId      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  actor        User?        @relation(fields: [actorUserId], references: [id])
+
+  @@index([organizationId, actorUserId, entityType, createdAt])
+}
+
+
+model ImportJob {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  type            String
+  fileName        String
+  status          ImportStatus @default(UPLOADED)
+  totalRows       Int          @default(0)
+  validRows       Int          @default(0)
+  invalidRows     Int          @default(0)
+  createdById     String       @db.Uuid
+  sourcePath      String?
+  errorReportPath String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, createdAt])
+}
+
+model ExportJob {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  type           String
+  filtersJson    Json         @default("{}")
+  status         ExportStatus @default(QUEUED)
+  filePath       String?
+  rowCount       Int?
+  createdById    String       @db.Uuid
+  expiresAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, createdAt])
+}
+
+model WhatsAppTemplate {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  name           String
+  type           String
+  bodyTemplate   String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+}

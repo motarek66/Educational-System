@@ -1,0 +1,66 @@
+:root {
+  --color-primary-50: #eef5ff;
+  --color-primary-100: #d9e9ff;
+  --color-primary-200: #b8d6ff;
+  --color-primary-300: #8cb9ff;
+  --color-primary-400: #5a96ff;
+  --color-primary-500: #2f78f4;
+  --color-primary-600: #155fdc;
+  --color-primary-700: #124cb4;
+  --color-primary-800: #123f8e;
+  --color-primary-900: #14366f;
+
+  --color-gray-0: #ffffff;
+  --color-gray-50: #f5f7fa;
+  --color-gray-100: #eef0f4;
+  --color-gray-200: #e1e4ea;
+  --color-gray-300: #cfd4dc;
+  --color-gray-400: #99a0ae;
+  --color-gray-500: #717784;
+  --color-gray-600: #525866;
+  --color-gray-700: #343a46;
+  --color-gray-800: #1f2530;
+  --color-gray-900: #0e121b;
+
+  --color-success-50: #ecfdf3;
+  --color-success-500: #12a150;
+  --color-warning-50: #fff8e6;
+  --color-warning-500: #d99614;
+  --color-danger-50: #fff0f0;
+  --color-danger-500: #d93f3f;
+  --color-info-50: #edf7ff;
+  --color-info-500: #2487c9;
+
+  --surface-page: var(--color-gray-50);
+  --surface-card: var(--color-gray-0);
+  --surface-subtle: #f8f9fb;
+  --text-primary: var(--color-gray-900);
+  --text-secondary: var(--color-gray-500);
+  --border-subtle: var(--color-gray-200);
+
+  --font-family-base: 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: 2rem;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --focus-ring: 0 0 0 3px rgba(47, 120, 244, 0.2);
+  --sidebar-width: 6rem;
+  --topbar-height: 5rem;
+  --mobile-nav-height: 4.75rem;
+}
