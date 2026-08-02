@@ -118,9 +118,11 @@ async function main(): Promise<void> {
     { name: 'غياب', type: 'ABSENCE', bodyTemplate: 'السلام عليكم، نحيط حضرتكم علمًا بأن الطالب {{student_name}} لم يحضر حصة يوم {{lesson_date}} في {{center_name}}. برجاء المتابعة.' },
     { name: 'تأخر متكرر', type: 'LATE', bodyTemplate: 'السلام عليكم، نود إبلاغ حضرتكم بأن الطالب {{student_name}} تأخر في الحضور {{late_count}} مرات خلال الفترة الأخيرة.' },
   ];
-  for (const template of defaultTemplates) {
-    const existing = await prisma.whatsAppTemplate.findFirst({ where: { organizationId: organization.id, name: template.name } });
-    if (!existing) await prisma.whatsAppTemplate.create({ data: { organizationId: organization.id, ...template } });
+  const templatesCount = await prisma.whatsAppTemplate.count({ where: { organizationId: organization.id } });
+  if (templatesCount === 0) {
+    await prisma.whatsAppTemplate.createMany({
+      data: defaultTemplates.map((template) => ({ organizationId: organization.id, ...template })),
+    });
   }
 }
 
