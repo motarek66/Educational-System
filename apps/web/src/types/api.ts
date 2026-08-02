@@ -147,3 +147,20 @@ export type CenterDetails = {
     status: 'ACTIVE' | 'INACTIVE' | 'WITHDRAWN' | 'SUSPENDED';
   }>;
 };
+
+export type WhatsAppTemplate = {
+  id: string;
+  name: string;
+  type: 'GENERAL' | 'GRADE' | 'ABSENCE' | 'LATE' | 'CUSTOM';
+  bodyTemplate: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WhatsAppPreview = {
+  templateId: string;
+  templateName: string;
+  message: string;
+  url: string | null;
+};

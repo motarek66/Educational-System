@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { BellRing, CalendarRange, DatabaseBackup, KeyRound, MessageCircle, Save, Settings2 } from 'lucide-react';
+import { BellRing, CalendarRange, DatabaseBackup, KeyRound, Save, Settings2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { api, getApiErrorMessage } from '../../lib/api/client';
 import type { ApiResponse } from '../../types/api';
+import { WhatsAppTemplatesManager } from '../whatsapp/WhatsAppTemplatesManager';
 
 type SettingsPayload = {
   organizationName: string;
@@ -34,11 +35,11 @@ export function SettingsPage() {
         </div>
         <div className="col-lg-4"><div className="d-grid gap-3">{[
           { icon: CalendarRange, title: 'السنة الدراسية', description: query.data?.activeAcademicYear ?? 'لم يتم تعيين سنة نشطة' },
-          { icon: MessageCircle, title: 'قوالب واتساب', description: 'قوالب النتائج والغياب والتأخير' },
           { icon: KeyRound, title: 'الأدوار والصلاحيات', description: 'إدارة Permissions ونطاقات السناتر' },
           { icon: DatabaseBackup, title: 'النسخ الاحتياطي', description: query.data?.lastBackupAt ? `آخر نسخة: ${query.data.lastBackupAt}` : 'لم تُسجل نسخة بعد' },
         ].map(({ icon: Icon, title, description }) => <Card className="panel" key={title}><div className="d-flex align-items-center gap-3"><div className="metric-card__icon"><Icon size={20} /></div><div><div className="fw-semibold">{title}</div><div className="text-secondary small mt-1">{description}</div></div></div><Button variant="ghost" className="w-100 mt-3">إدارة</Button></Card>)}</div></div>
       </div>
+      <WhatsAppTemplatesManager />
     </>
   );
 }

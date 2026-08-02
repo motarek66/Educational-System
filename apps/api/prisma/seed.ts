@@ -10,7 +10,7 @@ const permissions = [
   'lessons.create',
   'exams.view', 'exams.create',
   'grades.enter', 'grades.edit_draft', 'grades.edit_published',
-  'whatsapp.open_message',
+  'whatsapp.open_message', 'whatsapp.manage_templates',
   'centers.view', 'centers.create',
   'dashboard.view', 'reports.export',
 ] as const;
@@ -113,6 +113,7 @@ async function main(): Promise<void> {
   });
 
   const defaultTemplates = [
+    { name: 'رسالة عامة للطالب', type: 'GENERAL', bodyTemplate: 'مرحبًا، نود التواصل معك بخصوص الطالب {{student_name}} (كود {{student_code}}) في {{center_name}}.' },
     { name: 'نتيجة امتحان', type: 'GRADE', bodyTemplate: 'السلام عليكم، نحيط حضرتكم علمًا بأن الطالب {{student_name}} حصل على {{score}} من {{max_score}} في {{exam_name}} بنسبة {{percentage}}%.' },
     { name: 'غياب', type: 'ABSENCE', bodyTemplate: 'السلام عليكم، نحيط حضرتكم علمًا بأن الطالب {{student_name}} لم يحضر حصة يوم {{lesson_date}} في {{center_name}}. برجاء المتابعة.' },
     { name: 'تأخر متكرر', type: 'LATE', bodyTemplate: 'السلام عليكم، نود إبلاغ حضرتكم بأن الطالب {{student_name}} تأخر في الحضور {{late_count}} مرات خلال الفترة الأخيرة.' },

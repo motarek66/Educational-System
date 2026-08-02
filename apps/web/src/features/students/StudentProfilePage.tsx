@@ -10,7 +10,10 @@ import { MetricCard } from '../../components/ui/MetricCard';
 import { StatusBadge, studentStatusMeta } from '../../components/ui/StatusBadge';
 import { api, getApiErrorMessage } from '../../lib/api/client';
 import { formatNumber, formatPercent } from '../../lib/formatting';
+import { can } from '../../lib/permissions/can';
 import type { ApiResponse, StudentProfile } from '../../types/api';
+import { useAuth } from '../auth/AuthContext';
+import { WhatsAppDialog } from '../whatsapp/WhatsAppDialog';
 
 type StudentQr = {
   studentId: string;
@@ -158,7 +161,9 @@ function StudentQrDialog({ studentId, studentName, open, onClose }: { studentId:
 
 export function StudentProfilePage() {
   const { studentId = '' } = useParams();
+  const { user } = useAuth();
   const [qrOpen, setQrOpen] = useState(false);
+  const [whatsAppOpen, setWhatsAppOpen] = useState(false);
   const query = useQuery({
     queryKey: ['student', studentId],
     queryFn: async () => (await api.get<ApiResponse<StudentProfile>>(`/students/${studentId}/profile`)).data.data,
@@ -174,7 +179,7 @@ export function StudentProfilePage() {
     <>
       <div className="page-header">
         <div className="d-flex align-items-center gap-2"><Link to="/students" className="btn p-2"><ArrowRight size={20} /></Link><div><h1 className="page-title">ملف الطالب</h1><p className="page-subtitle">البيانات الأكاديمية والحضور والدرجات والتواصل.</p></div></div>
-        <div className="d-flex gap-2 flex-wrap"><Button variant="ghost"><Printer size={18} /> طباعة الكارت</Button><Button variant="secondary"><MessageCircle size={18} /> رسالة واتساب</Button><Button><Edit3 size={18} /> تعديل البيانات</Button></div>
+        <div className="d-flex gap-2 flex-wrap"><Button variant="ghost"><Printer size={18} /> طباعة الكارت</Button>{can(user, 'whatsapp.open_message') ? <Button variant="secondary" onClick={() => setWhatsAppOpen(true)}><MessageCircle size={18} /> رسالة واتساب</Button> : null}<Button><Edit3 size={18} /> تعديل البيانات</Button></div>
       </div>
 
       <Card className="student-profile-hero mb-3">
@@ -206,6 +211,7 @@ export function StudentProfilePage() {
       </div>
       <AttendanceAcademicYear student={student} />
       <StudentQrDialog studentId={studentId} studentName={student.fullName} open={qrOpen} onClose={() => setQrOpen(false)} />
+      <WhatsAppDialog student={student} open={whatsAppOpen} onClose={() => setWhatsAppOpen(false)} />
     </>
   );
 }
