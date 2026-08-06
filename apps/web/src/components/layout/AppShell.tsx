@@ -82,7 +82,7 @@ export function AppShell() {
               <Bell size={20} />
               <span className="position-absolute rounded-circle bg-danger" style={{ width: 7, height: 7, top: 8, right: 7 }} />
             </button>
-            <div className="d-flex align-items-center gap-2 border-end pe-3">
+            <div className="d-flex align-items-center gap-2 border-start ps-3">
               <div className="d-none d-md-block text-end">
                 <div className="small fw-semibold">{userName}</div>
                 <div className="text-secondary" style={{ fontSize: 11 }}>{user?.isSuperAdmin ? 'مدير النظام' : 'مشرف'}</div>
