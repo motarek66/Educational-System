@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
+import { unicodeEnvOrFallback } from '../src/config/unicode-text';
 
 const prisma = new PrismaClient();
 
@@ -74,6 +75,7 @@ async function main(): Promise<void> {
 
   const email = process.env.SUPER_ADMIN_EMAIL ?? 'admin@example.com';
   const phoneE164 = process.env.SUPER_ADMIN_PHONE ?? '+201000000000';
+  const fullName = unicodeEnvOrFallback(process.env.SUPER_ADMIN_NAME, 'مدير النظام');
   const password = process.env.SUPER_ADMIN_PASSWORD;
   if (!password || password.length < 12) {
     throw new Error('SUPER_ADMIN_PASSWORD must be set and contain at least 12 characters');
@@ -81,10 +83,10 @@ async function main(): Promise<void> {
 
   const admin = await prisma.user.upsert({
     where: { organizationId_email: { organizationId: organization.id, email } },
-    update: { fullName: process.env.SUPER_ADMIN_NAME ?? 'مدير النظام', phoneE164, status: 'ACTIVE' },
+    update: { fullName, phoneE164, status: 'ACTIVE' },
     create: {
       organizationId: organization.id,
-      fullName: process.env.SUPER_ADMIN_NAME ?? 'مدير النظام',
+      fullName,
       email,
       phoneE164,
       passwordHash: await argon2.hash(password),
