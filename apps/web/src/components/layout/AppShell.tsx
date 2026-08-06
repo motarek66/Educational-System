@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../features/auth/AuthContext';
+import { displayUserName } from '../../features/auth/user-display';
 
 const primaryNav = [
   { to: '/', label: 'الرئيسية', icon: LayoutDashboard },
@@ -56,6 +57,7 @@ function SideNavLink({ to, label, icon: Icon }: (typeof primaryNav)[number]) {
 export function AppShell() {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const userName = displayUserName(user);
   const routeRoot = `/${location.pathname.split('/').filter(Boolean)[0] ?? ''}`;
   const title = routeTitles[location.pathname] ?? routeTitles[routeRoot] ?? 'منصة متابعة الطلاب';
 
@@ -82,7 +84,7 @@ export function AppShell() {
             </button>
             <div className="d-flex align-items-center gap-2 border-end pe-3">
               <div className="d-none d-md-block text-end">
-                <div className="small fw-semibold">{user?.fullName}</div>
+                <div className="small fw-semibold">{userName}</div>
                 <div className="text-secondary" style={{ fontSize: 11 }}>{user?.isSuperAdmin ? 'مدير النظام' : 'مشرف'}</div>
               </div>
               <div className="sidebar__brand-mark" style={{ width: 40, height: 40 }}><Users size={19} /></div>
