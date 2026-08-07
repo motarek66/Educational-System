@@ -1,3 +1,4 @@
+# Railway service root directory: apps/api
 FROM node:22.16.0-alpine AS build
 WORKDIR /app
 RUN apk add --no-cache openssl libc6-compat \
