@@ -17,6 +17,24 @@ class AuditQuery {
 export class AuditController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @Get('notifications')
+  @RequirePermissions('dashboard.view')
+  notifications(@CurrentUser() user: RequestUser) {
+    return this.prisma.auditLog.findMany({
+      where: { organizationId: user.organizationId },
+      select: {
+        id: true,
+        action: true,
+        entityType: true,
+        entityId: true,
+        createdAt: true,
+        actor: { select: { fullName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+  }
+
   @Get()
   @RequirePermissions('users.view')
   async list(@CurrentUser() user: RequestUser, @Query() query: AuditQuery) {

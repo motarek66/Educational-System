@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
   Bell,
@@ -14,9 +15,35 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../features/auth/AuthContext';
 import { displayUserName } from '../../features/auth/user-display';
+import { api } from '../../lib/api/client';
+import { formatDateTime } from '../../lib/formatting';
+import { can } from '../../lib/permissions/can';
+import type { ApiResponse } from '../../types/api';
+
+type NotificationItem = {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  createdAt: string;
+  actor: { fullName: string } | null;
+};
+
+const notificationLabels: Record<string, string> = {
+  STUDENT_CREATED: 'تمت إضافة طالب جديد',
+  STUDENT_UPDATED: 'تم تعديل بيانات طالب',
+  STUDENT_ARCHIVED: 'تمت أرشفة طالب',
+  STUDENT_TRANSFERRED: 'تم نقل طالب إلى سنتر آخر',
+  LESSON_CLOSED: 'تم إغلاق حصة واعتماد الحضور',
+  EXAM_PUBLISHED: 'تم نشر درجات امتحان',
+  USER_CREATED: 'تمت إضافة مستخدم جديد',
+  IMPORT_COMMITTED: 'تم اعتماد ملف استيراد',
+  EXPORT_CREATED: 'تم إنشاء ملف تصدير',
+};
 
 const primaryNav = [
   { to: '/', label: 'الرئيسية', icon: LayoutDashboard },
@@ -57,9 +84,40 @@ function SideNavLink({ to, label, icon: Icon }: (typeof primaryNav)[number]) {
 export function AppShell() {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [lastSeen, setLastSeen] = useState(() => Number(localStorage.getItem('notifications:lastSeen') ?? 0));
   const userName = displayUserName(user);
   const routeRoot = `/${location.pathname.split('/').filter(Boolean)[0] ?? ''}`;
   const title = routeTitles[location.pathname] ?? routeTitles[routeRoot] ?? 'منصة متابعة الطلاب';
+  const notificationsQuery = useQuery({
+    queryKey: ['notifications'],
+    queryFn: async () => (await api.get<ApiResponse<NotificationItem[]>>('/audit-logs/notifications')).data.data,
+    enabled: can(user, 'dashboard.view'),
+    refetchInterval: 60_000,
+  });
+  const notifications = notificationsQuery.data ?? [];
+  const unreadCount = notifications.filter((item) => new Date(item.createdAt).getTime() > lastSeen).length;
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!notificationRef.current?.contains(event.target as Node)) setNotificationsOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, []);
+
+  const toggleNotifications = () => {
+    setNotificationsOpen((current) => {
+      const next = !current;
+      if (next) {
+        const now = Date.now();
+        localStorage.setItem('notifications:lastSeen', String(now));
+        setLastSeen(now);
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="app-shell">
@@ -78,10 +136,27 @@ export function AppShell() {
               <input className="form-control topbar__search" placeholder="ابحث عما تريد..." aria-label="البحث العام" />
               <Search size={17} className="position-absolute top-50 translate-middle-y text-secondary" style={{ insetInlineEnd: 0 }} />
             </div>
-            <button className="btn p-2 position-relative" aria-label="الإشعارات">
-              <Bell size={20} />
-              <span className="position-absolute rounded-circle bg-danger" style={{ width: 7, height: 7, top: 8, right: 7 }} />
-            </button>
+            <div className="notification-center" ref={notificationRef}>
+              <button className="btn p-2 position-relative" aria-label={`الإشعارات${unreadCount ? `، ${unreadCount} غير مقروءة` : ''}`} aria-expanded={notificationsOpen} onClick={toggleNotifications}>
+                <Bell size={20} />
+                {unreadCount > 0 ? <span className="notification-dot">{unreadCount > 9 ? '9+' : unreadCount}</span> : null}
+              </button>
+              {notificationsOpen ? (
+                <div className="notification-menu app-card">
+                  <div className="notification-menu__header"><strong>الإشعارات</strong><span className="text-secondary small">آخر الأنشطة</span></div>
+                  <div className="notification-menu__list">
+                    {notificationsQuery.isLoading ? <div className="p-3 text-secondary small">جاري تحميل الإشعارات...</div> : null}
+                    {!notificationsQuery.isLoading && notifications.length === 0 ? <div className="p-3 text-secondary small">لا توجد إشعارات جديدة.</div> : null}
+                    {notifications.map((item) => {
+                      const content = <><span className="notification-menu__icon"><Bell size={15} /></span><span className="flex-grow-1"><strong className="d-block small">{notificationLabels[item.action] ?? item.action.replaceAll('_', ' ')}</strong><span className="text-secondary" style={{ fontSize: 11 }}>{item.actor?.fullName ?? 'النظام'} · {formatDateTime(item.createdAt)}</span></span></>;
+                      return item.entityType === 'Student' && item.entityId
+                        ? <NavLink key={item.id} to={`/students/${item.entityId}`} className="notification-menu__item" onClick={() => setNotificationsOpen(false)}>{content}</NavLink>
+                        : <div key={item.id} className="notification-menu__item">{content}</div>;
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </div>
             <div className="d-flex align-items-center gap-2 border-start ps-3">
               <div className="d-none d-md-block text-end">
                 <div className="small fw-semibold">{userName}</div>

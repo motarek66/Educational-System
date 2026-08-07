@@ -14,6 +14,7 @@ import { can } from '../../lib/permissions/can';
 import type { ApiResponse, StudentProfile } from '../../types/api';
 import { useAuth } from '../auth/AuthContext';
 import { WhatsAppDialog } from '../whatsapp/WhatsAppDialog';
+import { StudentFormDialog } from './StudentFormDialog';
 
 type StudentQr = {
   studentId: string;
@@ -164,6 +165,7 @@ export function StudentProfilePage() {
   const { user } = useAuth();
   const [qrOpen, setQrOpen] = useState(false);
   const [whatsAppOpen, setWhatsAppOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const query = useQuery({
     queryKey: ['student', studentId],
     queryFn: async () => (await api.get<ApiResponse<StudentProfile>>(`/students/${studentId}/profile`)).data.data,
@@ -179,7 +181,7 @@ export function StudentProfilePage() {
     <>
       <div className="page-header">
         <div className="d-flex align-items-center gap-2"><Link to="/students" className="btn p-2"><ArrowRight size={20} /></Link><div><h1 className="page-title">ملف الطالب</h1><p className="page-subtitle">البيانات الأكاديمية والحضور والدرجات والتواصل.</p></div></div>
-        <div className="d-flex gap-2 flex-wrap"><Button variant="ghost"><Printer size={18} /> طباعة الكارت</Button>{can(user, 'whatsapp.open_message') ? <Button variant="secondary" onClick={() => setWhatsAppOpen(true)}><MessageCircle size={18} /> رسالة واتساب</Button> : null}<Button><Edit3 size={18} /> تعديل البيانات</Button></div>
+        <div className="d-flex gap-2 flex-wrap"><Button variant="ghost"><Printer size={18} /> طباعة الكارت</Button>{can(user, 'whatsapp.open_message') ? <Button variant="secondary" onClick={() => setWhatsAppOpen(true)}><MessageCircle size={18} /> رسالة واتساب</Button> : null}{can(user, 'students.update') ? <Button onClick={() => setEditOpen(true)}><Edit3 size={18} /> تعديل البيانات</Button> : null}</div>
       </div>
 
       <Card className="student-profile-hero mb-3">
@@ -199,8 +201,7 @@ export function StudentProfilePage() {
           <div className="panel__header"><div><h2 className="panel__title">بيانات الطالب</h2><p className="panel__subtitle">المعلومات الأساسية والتعليمية</p></div></div>
           <dl className="row g-3 mb-0">
             <div className="col-md-6"><dt className="text-secondary small fw-normal">هاتف الطالب</dt><dd className="mt-1 ltr-value">{student.studentPhone ?? 'غير مسجل'}</dd></div>
-            <div className="col-md-6"><dt className="text-secondary small fw-normal">المدرسة</dt><dd className="mt-1">{student.schoolName ?? 'غير مسجلة'}</dd></div>
-            <div className="col-12"><dt className="text-secondary small fw-normal">العنوان</dt><dd className="mt-1">{student.address ?? 'غير مسجل'}</dd></div>
+            <div className="col-md-6"><dt className="text-secondary small fw-normal">السنة الدراسية</dt><dd className="mt-1">{student.academicYear?.name ?? 'غير مسجلة'}</dd></div>
           </dl>
         </Card>
 
@@ -212,6 +213,7 @@ export function StudentProfilePage() {
       <AttendanceAcademicYear student={student} />
       <StudentQrDialog studentId={studentId} studentName={student.fullName} open={qrOpen} onClose={() => setQrOpen(false)} />
       <WhatsAppDialog student={student} open={whatsAppOpen} onClose={() => setWhatsAppOpen(false)} />
+      <StudentFormDialog open={editOpen} studentId={studentId} onClose={() => setEditOpen(false)} />
     </>
   );
 }

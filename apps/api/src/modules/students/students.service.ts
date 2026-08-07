@@ -6,14 +6,14 @@ import { DomainError } from '../../common/errors/domain-error';
 import type { RequestUser } from '../../common/guards/auth.guard';
 import { PrismaService } from '../../database/prisma.service';
 import { ScopeService } from '../rbac/scope.service';
-import { CreateStudentDto } from './students.dto';
+import { CreateStudentDto, UpdateStudentDto } from './students.dto';
 import { normalizeArabicName, normalizeEgyptPhone } from './student-utils';
 
 @Injectable()
 export class StudentsService {
   constructor(private readonly prisma: PrismaService, private readonly scope: ScopeService) {}
 
-  async list(user: RequestUser, query: { search?: string; status?: string; page?: number; limit?: number }) {
+  async list(user: RequestUser, query: { search?: string; status?: string; academicYearId?: string; sort?: 'newest' | 'oldest' | 'nameAsc' | 'nameDesc'; page?: number; limit?: number }) {
     const page = Math.max(1, query.page ?? 1);
     const limit = Math.min(100, Math.max(1, query.limit ?? 25));
     const search = query.search?.trim();
@@ -32,7 +32,12 @@ export class StudentsService {
       organizationId: user.organizationId,
       archivedAt: null,
       status,
-      profiles: { some: { enrollments: { some: { ...scopeFilter, status: 'ACTIVE' } } } },
+      profiles: {
+        some: {
+          academicYearId: query.academicYearId,
+          enrollments: { some: { ...scopeFilter, status: 'ACTIVE' } },
+        },
+      },
       ...(search
         ? {
             OR: [
@@ -51,9 +56,16 @@ export class StudentsService {
         where,
         skip: (page - 1) * limit,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: query.sort === 'oldest'
+          ? { createdAt: 'asc' }
+          : query.sort === 'nameAsc'
+            ? { fullName: 'asc' }
+            : query.sort === 'nameDesc'
+              ? { fullName: 'desc' }
+              : { createdAt: 'desc' },
         include: {
           profiles: {
+            where: query.academicYearId ? { academicYearId: query.academicYearId } : undefined,
             include: {
               enrollments: {
                 where: { status: 'ACTIVE' },
@@ -83,6 +95,7 @@ export class StudentsService {
           centerName: enrollment?.center.name ?? 'غير مسجل',
           guardianPhone: guardian?.phoneE164 ?? null,
           status: student.status,
+          academicYearId: profile?.academicYearId ?? null,
         };
       }),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
@@ -101,7 +114,10 @@ export class StudentsService {
           where: { id: dto.centerId, organizationId: user.organizationId, archivedAt: null },
         }),
         tx.academicYear.findFirst({
-          where: { organizationId: user.organizationId, status: 'ACTIVE' },
+          where: {
+            organizationId: user.organizationId,
+            ...(dto.academicYearId ? { id: dto.academicYearId } : { status: 'ACTIVE' }),
+          },
           orderBy: [{ isDefault: 'desc' }, { startDate: 'desc' }],
         }),
       ]);
@@ -138,6 +154,7 @@ export class StudentsService {
           studentPhoneE164: dto.studentPhone ? normalizeEgyptPhone(dto.studentPhone) : null,
           schoolName: dto.schoolName,
           address: dto.address,
+          status: dto.status ?? StudentStatus.ACTIVE,
           createdById: user.id,
         },
       });
@@ -207,6 +224,96 @@ export class StudentsService {
         qrValue: `STQR:${qrToken}`,
       };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }
+
+  async update(user: RequestUser, studentId: string, dto: UpdateStudentDto) {
+    const profile = await this.getScopedProfile(user, studentId);
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { studentAcademicProfileId: profile.id, status: 'ACTIVE' },
+      orderBy: { isPrimary: 'desc' },
+    });
+    if (!enrollment) throw new DomainError('RESOURCE_NOT_FOUND', 'قيد الطالب غير موجود.', HttpStatus.NOT_FOUND);
+
+    if (dto.centerId) {
+      this.scope.assertCenter(user, dto.centerId);
+      const centerExists = await this.prisma.center.count({
+        where: { id: dto.centerId, organizationId: user.organizationId, archivedAt: null },
+      });
+      if (!centerExists) throw new DomainError('RESOURCE_NOT_FOUND', 'السنتر غير صالح.', HttpStatus.NOT_FOUND);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.student.findUnique({ where: { id: studentId } });
+      const student = await tx.student.update({
+        where: { id: studentId },
+        data: {
+          ...(dto.fullName !== undefined ? {
+            fullName: dto.fullName.trim(),
+            normalizedName: normalizeArabicName(dto.fullName),
+          } : {}),
+          ...(dto.studentPhone !== undefined ? {
+            studentPhoneE164: dto.studentPhone.trim() ? normalizeEgyptPhone(dto.studentPhone) : null,
+          } : {}),
+          ...(dto.status !== undefined ? { status: dto.status } : {}),
+        },
+      });
+
+      if (dto.gradeLevel !== undefined) {
+        await tx.studentAcademicProfile.update({ where: { id: profile.id }, data: { gradeLevel: dto.gradeLevel } });
+      }
+      if (dto.centerId !== undefined && dto.centerId !== enrollment.centerId) {
+        await tx.enrollment.update({
+          where: { id: enrollment.id },
+          data: { status: 'TRANSFERRED', endDate: new Date(), transferReason: 'تعديل بيانات الطالب' },
+        });
+        await tx.enrollment.create({
+          data: {
+            organizationId: user.organizationId,
+            academicYearId: profile.academicYearId,
+            studentAcademicProfileId: profile.id,
+            centerId: dto.centerId,
+            startDate: new Date(),
+            isPrimary: true,
+            createdById: user.id,
+          },
+        });
+      }
+
+      const primaryGuardian = await tx.studentGuardian.findFirst({
+        where: { studentId, isPrimary: true },
+        include: { guardian: true },
+      });
+      if (primaryGuardian && (dto.guardianName !== undefined || dto.guardianPhone !== undefined)) {
+        await tx.guardian.update({
+          where: { id: primaryGuardian.guardianId },
+          data: {
+            ...(dto.guardianName !== undefined ? { fullName: dto.guardianName.trim() } : {}),
+            ...(dto.guardianPhone !== undefined ? {
+              phoneE164: normalizeEgyptPhone(dto.guardianPhone),
+              whatsappPhoneE164: normalizeEgyptPhone(dto.guardianPhone),
+            } : {}),
+          },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          organizationId: user.organizationId,
+          actorUserId: user.id,
+          action: 'STUDENT_UPDATED',
+          entityType: 'Student',
+          entityId: studentId,
+          beforeJson: before ?? undefined,
+          afterJson: {
+            fullName: student.fullName,
+            status: student.status,
+            gradeLevel: dto.gradeLevel ?? profile.gradeLevel,
+            centerId: dto.centerId ?? enrollment.centerId,
+          },
+        },
+      });
+      return { id: student.id, fullName: student.fullName, status: student.status };
+    });
   }
 
   async profile(user: RequestUser, studentId: string) {
@@ -301,8 +408,10 @@ export class StudentsService {
       id: student.id,
       fullName: student.fullName,
       studentCode: profile?.studentCode ?? '—',
+      academicYearId: profile?.academicYearId ?? null,
       gradeLevel: profile?.gradeLevel ?? '—',
       centerName: enrollment?.center.name ?? 'غير مسجل',
+      centerId: enrollment?.center.id ?? null,
       guardianPhone: student.guardians.find((item) => item.isPrimary)?.guardian.phoneE164 ?? null,
       status: student.status,
       studentPhone: student.studentPhoneE164,
