@@ -1,4 +1,4 @@
-import { unicodeEnvOrFallback } from './unicode-text';
+import { unicodeEnvOrFallback } from '../../prisma/seed-utils';
 
 describe('unicodeEnvOrFallback', () => {
   it('preserves valid Arabic text', () => {
