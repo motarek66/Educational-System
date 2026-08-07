@@ -1,11 +1,12 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { AttendanceStatus, GradeStatus, Prisma, StudentStatus } from '@prisma/client';
+import { GradeStatus, Prisma, StudentStatus } from '@prisma/client';
 import { createHash, createHmac, randomUUID } from 'node:crypto';
 import QRCode from 'qrcode';
 import { DomainError } from '../../common/errors/domain-error';
 import type { RequestUser } from '../../common/guards/auth.guard';
 import { PrismaService } from '../../database/prisma.service';
 import { ScopeService } from '../rbac/scope.service';
+import { teachingWeekContaining } from '../attendance/weekly-attendance.service';
 import { CreateStudentDto, UpdateStudentDto } from './students.dto';
 import { normalizeArabicName, normalizeEgyptPhone } from './student-utils';
 
@@ -356,13 +357,7 @@ export class StudentsService {
     const profile = student.profiles[0];
     const enrollment = profile?.enrollments[0];
 
-    const [attendanceCounts, gradeAggregate, publishedExamCount] = await this.prisma.$transaction([
-      this.prisma.attendanceRecord.groupBy({
-        by: ['status'],
-        where: { organizationId: user.organizationId, studentId },
-        orderBy: { status: 'asc' },
-        _count: { _all: true },
-      }),
+    const [gradeAggregate, publishedExamCount] = await this.prisma.$transaction([
       this.prisma.grade.aggregate({
         where: {
           organizationId: user.organizationId,
@@ -381,21 +376,15 @@ export class StudentsService {
       }),
     ]);
 
-    const attendanceMap = new Map(
-      attendanceCounts.map((row) => [
-        row.status,
-        typeof row._count === 'object' ? row._count._all ?? 0 : 0,
-      ]),
-    );
-    const present = (attendanceMap.get(AttendanceStatus.PRESENT) ?? 0) + (attendanceMap.get(AttendanceStatus.LATE) ?? 0);
-    const absent = attendanceMap.get(AttendanceStatus.ABSENT) ?? 0;
-    const total = present + absent;
     const attendanceSessions = profile && enrollment
       ? await this.prisma.lesson.findMany({
           where: {
             organizationId: user.organizationId,
             academicYearId: profile.academicYearId,
-            centerId: enrollment.centerId,
+            OR: [
+              { centerId: enrollment.centerId },
+              { scopes: { some: { centerId: enrollment.centerId } } },
+            ],
           },
           include: {
             attendance: { where: { studentId }, take: 1 },
@@ -403,6 +392,58 @@ export class StudentsService {
           orderBy: { lessonDate: 'asc' },
         })
       : [];
+    const [weeklyAbsences, lessonAttendance, lessonGradeRows] = profile
+      ? await Promise.all([
+          this.prisma.weeklyAttendanceResult.findMany({
+            where: { studentId, academicYearId: profile.academicYearId },
+            orderBy: { weekStart: 'asc' },
+          }),
+          this.prisma.attendanceRecord.findMany({
+            where: {
+              studentId,
+              enrollment: { academicYearId: profile.academicYearId },
+              status: { in: ['PRESENT', 'LATE', 'PARTIAL'] },
+            },
+            include: { lesson: true, enrollment: { include: { center: true } } },
+            orderBy: { checkInAt: 'asc' },
+          }),
+          this.prisma.grade.findMany({
+            where: { studentId, exam: { lessonId: { not: null }, academicYearId: profile.academicYearId } },
+            include: { exam: { include: { lesson: true } }, enrollment: { include: { center: true } } },
+          }),
+        ])
+      : [[], [], []];
+    const gradeByLesson = new Map(lessonGradeRows.flatMap((grade) => grade.exam.lessonId ? [[grade.exam.lessonId, grade] as const] : []));
+    const timeZone = process.env.APP_TIMEZONE ?? 'Africa/Cairo';
+    const weeklyMap = new Map<string, { weekStart: string; weekEnd: string; status: 'PRESENT' | 'LATE' | 'ABSENT' }>();
+    for (const attendance of lessonAttendance) {
+      const range = teachingWeekContaining(attendance.checkInAt ?? attendance.createdAt, timeZone);
+      const key = range.weekStart.toISOString().slice(0, 10);
+      const existingWeek = weeklyMap.get(key);
+      const nextStatus = attendance.status === 'PRESENT' || attendance.status === 'PARTIAL' ? 'PRESENT' : 'LATE';
+      if (!existingWeek || nextStatus === 'PRESENT') {
+        weeklyMap.set(key, {
+          weekStart: key,
+          weekEnd: range.weekEnd.toISOString().slice(0, 10),
+          status: nextStatus,
+        });
+      }
+    }
+    for (const absenceResult of weeklyAbsences) {
+      const key = absenceResult.weekStart.toISOString().slice(0, 10);
+      if (!weeklyMap.has(key)) {
+        weeklyMap.set(key, {
+          weekStart: key,
+          weekEnd: absenceResult.weekEnd.toISOString().slice(0, 10),
+          status: 'ABSENT',
+        });
+      }
+    }
+    const weeklyValues = [...weeklyMap.values()];
+    const weeklyPresent = weeklyValues.filter(({ status }) => status === 'PRESENT').length;
+    const weeklyLate = weeklyValues.filter(({ status }) => status === 'LATE').length;
+    const weeklyAbsent = weeklyValues.filter(({ status }) => status === 'ABSENT').length;
+    const weeklyTotal = weeklyValues.length;
 
     return {
       id: student.id,
@@ -432,10 +473,10 @@ export class StudentsService {
         isPrimary: link.isPrimary,
       })),
       attendanceSummary: {
-        present: attendanceMap.get(AttendanceStatus.PRESENT) ?? 0,
-        late: attendanceMap.get(AttendanceStatus.LATE) ?? 0,
-        absent,
-        rate: total > 0 ? (present / total) * 100 : 0,
+        present: weeklyPresent,
+        late: weeklyLate,
+        absent: weeklyAbsent,
+        rate: weeklyTotal > 0 ? ((weeklyPresent + weeklyLate) / weeklyTotal) * 100 : 0,
       },
       attendanceSessions: attendanceSessions.map((lesson) => ({
         lessonId: lesson.id,
@@ -446,6 +487,19 @@ export class StudentsService {
         attendanceStatus: lesson.attendance[0]?.status ?? null,
         checkInAt: lesson.attendance[0]?.checkInAt?.toISOString() ?? null,
       })),
+      weeklyAttendance: weeklyValues.sort((a, b) => a.weekStart.localeCompare(b.weekStart)),
+      lessonGrades: lessonAttendance.map((attendance) => {
+        const grade = gradeByLesson.get(attendance.lessonId);
+        return {
+          lessonId: attendance.lessonId,
+          title: attendance.lesson.title ?? 'حصة',
+          startsAt: attendance.lesson.startsAt.toISOString(),
+          centerName: attendance.enrollment.center.name,
+          attendanceStatus: attendance.status,
+          score: grade?.score === null || grade?.score === undefined ? null : Number(grade.score),
+          maxScore: grade ? Number(grade.exam.maxScore) : 10,
+        };
+      }),
       gradeSummary: {
         average: Number(gradeAggregate._avg.percentage ?? 0),
         publishedExams: publishedExamCount,

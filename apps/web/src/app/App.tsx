@@ -8,6 +8,8 @@ import { CenterDetailsPage } from '../features/centers/CenterDetailsPage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { ExamsPage } from '../features/exams/ExamsPage';
 import { GradebookPage } from '../features/exams/GradebookPage';
+import { LessonDetailsPage } from '../features/lessons/LessonDetailsPage';
+import { LessonsPage } from '../features/lessons/LessonsPage';
 import { ReportsPage } from '../features/reports/ReportsPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { StudentProfilePage } from '../features/students/StudentProfilePage';
@@ -27,6 +29,8 @@ export function App() {
           <Route path="centers" element={<CentersPage />} />
           <Route path="centers/:centerId" element={<CenterDetailsPage />} />
           <Route path="attendance" element={<AttendancePage />} />
+          <Route path="lessons" element={<LessonsPage />} />
+          <Route path="lessons/:lessonId" element={<LessonDetailsPage />} />
           <Route path="exams" element={<ExamsPage />} />
           <Route path="exams/:examId/gradebook" element={<GradebookPage />} />
           <Route path="reports" element={<ReportsPage />} />

@@ -123,23 +123,24 @@ model Organization {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  users            User[]
-  roles            Role[]
-  academicYears    AcademicYear[]
-  centers          Center[]
-  students         Student[]
-  guardians        Guardian[]
-  profiles         StudentAcademicProfile[]
-  enrollments      Enrollment[]
-  lessons          Lesson[]
-  attendance       AttendanceRecord[]
-  exams            Exam[]
-  grades           Grade[]
-  auditLogs        AuditLog[]
-  exportJobs       ExportJob[]
-  importJobs       ImportJob[]
+  users             User[]
+  roles             Role[]
+  academicYears     AcademicYear[]
+  centers           Center[]
+  students          Student[]
+  guardians         Guardian[]
+  profiles          StudentAcademicProfile[]
+  enrollments       Enrollment[]
+  lessons           Lesson[]
+  attendance        AttendanceRecord[]
+  exams             Exam[]
+  grades            Grade[]
+  auditLogs         AuditLog[]
+  exportJobs        ExportJob[]
+  importJobs        ImportJob[]
   whatsappTemplates WhatsAppTemplate[]
-  codeSequences    CodeSequence[]
+  codeSequences     CodeSequence[]
+  weeklyAttendance  WeeklyAttendanceResult[]
 }
 
 model User {
@@ -159,16 +160,16 @@ model User {
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 
-  organization  Organization      @relation(fields: [organizationId], references: [id])
+  organization  Organization         @relation(fields: [organizationId], references: [id])
   roles         UserRole[]
   centerScopes  UserCenterScope[]
   sessions      AuthSession[]
   auditLogs     AuditLog[]
-  openedLessons Lesson[]           @relation("LessonOpenedBy")
-  closedLessons Lesson[]           @relation("LessonClosedBy")
-  attendance    AttendanceRecord[] @relation("AttendanceRecordedBy")
-  createdExams  Exam[]             @relation("ExamCreatedBy")
-  enteredGrades Grade[]            @relation("GradeEnteredBy")
+  openedLessons Lesson[]             @relation("LessonOpenedBy")
+  closedLessons Lesson[]             @relation("LessonClosedBy")
+  attendance    AttendanceRecord[]   @relation("AttendanceRecordedBy")
+  createdExams  Exam[]               @relation("ExamCreatedBy")
+  enteredGrades Grade[]              @relation("GradeEnteredBy")
   gradeChanges  GradeChangeHistory[]
 
   @@unique([organizationId, email])
@@ -185,7 +186,7 @@ model Role {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization Organization      @relation(fields: [organizationId], references: [id])
+  organization Organization     @relation(fields: [organizationId], references: [id])
   users        UserRole[]
   permissions  RolePermission[]
 
@@ -193,8 +194,8 @@ model Role {
 }
 
 model Permission {
-  id          String @id @default(uuid()) @db.Uuid
-  key         String @unique
+  id          String           @id @default(uuid()) @db.Uuid
+  key         String           @unique
   description String
   roles       RolePermission[]
 }
@@ -227,16 +228,16 @@ model UserCenterScope {
 }
 
 model AuthSession {
-  id               String   @id @default(uuid()) @db.Uuid
-  userId           String   @db.Uuid
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
   refreshTokenHash String
   deviceName       String?
   userAgent        String?
   ipHash           String?
   expiresAt        DateTime
   revokedAt        DateTime?
-  lastUsedAt       DateTime @default(now())
-  createdAt        DateTime @default(now())
+  lastUsedAt       DateTime  @default(now())
+  createdAt        DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -255,37 +256,40 @@ model AcademicYear {
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
-  organization Organization              @relation(fields: [organizationId], references: [id])
-  profiles     StudentAcademicProfile[]
-  enrollments  Enrollment[]
-  lessons      Lesson[]
-  exams        Exam[]
-  codeSequences CodeSequence[]
+  organization     Organization             @relation(fields: [organizationId], references: [id])
+  profiles         StudentAcademicProfile[]
+  enrollments      Enrollment[]
+  lessons          Lesson[]
+  exams            Exam[]
+  codeSequences    CodeSequence[]
+  weeklyAttendance WeeklyAttendanceResult[]
 
   @@unique([organizationId, name])
   @@index([organizationId, status])
 }
 
 model Center {
-  id                  String       @id @default(uuid()) @db.Uuid
-  organizationId      String       @db.Uuid
-  name                String
-  code                String
-  address             String?
-  contactPhoneE164    String?
-  managerName         String?
-  notes               String?
-  status              CenterStatus @default(ACTIVE)
-  archivedAt          DateTime?
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
+  id               String       @id @default(uuid()) @db.Uuid
+  organizationId   String       @db.Uuid
+  name             String
+  code             String
+  address          String?
+  contactPhoneE164 String?
+  managerName      String?
+  notes            String?
+  status           CenterStatus @default(ACTIVE)
+  archivedAt       DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-  organization Organization       @relation(fields: [organizationId], references: [id])
-  enrollments  Enrollment[]
-  lessons      Lesson[]
-  attendanceOrigin AttendanceRecord[] @relation("AttendanceOriginalCenter")
-  examAssignments ExamCenterAssignment[]
-  userScopes   UserCenterScope[]
+  organization     Organization             @relation(fields: [organizationId], references: [id])
+  enrollments      Enrollment[]
+  lessons          Lesson[]
+  attendanceOrigin AttendanceRecord[]       @relation("AttendanceOriginalCenter")
+  examAssignments  ExamCenterAssignment[]
+  lessonScopes     LessonCenterScope[]
+  weeklyAttendance WeeklyAttendanceResult[]
+  userScopes       UserCenterScope[]
 
   @@unique([organizationId, name])
   @@unique([organizationId, code])
@@ -311,11 +315,12 @@ model Student {
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
 
-  organization Organization             @relation(fields: [organizationId], references: [id])
-  profiles     StudentAcademicProfile[]
-  guardians    StudentGuardian[]
-  attendance   AttendanceRecord[]
-  grades       Grade[]
+  organization     Organization             @relation(fields: [organizationId], references: [id])
+  profiles         StudentAcademicProfile[]
+  guardians        StudentGuardian[]
+  attendance       AttendanceRecord[]
+  grades           Grade[]
+  weeklyAttendance WeeklyAttendanceResult[]
 
   @@index([organizationId, normalizedName])
   @@index([organizationId, studentPhoneE164])
@@ -334,7 +339,7 @@ model Guardian {
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 
-  organization Organization       @relation(fields: [organizationId], references: [id])
+  organization Organization      @relation(fields: [organizationId], references: [id])
   students     StudentGuardian[]
 
   @@index([organizationId, phoneE164])
@@ -342,12 +347,12 @@ model Guardian {
 }
 
 model StudentGuardian {
-  studentId                 String               @db.Uuid
-  guardianId                String               @db.Uuid
-  relationship              GuardianRelationship
-  isPrimary                 Boolean              @default(false)
-  canReceiveResults         Boolean              @default(true)
-  canReceiveAttendanceAlerts Boolean             @default(true)
+  studentId                  String               @db.Uuid
+  guardianId                 String               @db.Uuid
+  relationship               GuardianRelationship
+  isPrimary                  Boolean              @default(false)
+  canReceiveResults          Boolean              @default(true)
+  canReceiveAttendanceAlerts Boolean              @default(true)
 
   student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
@@ -356,18 +361,18 @@ model StudentGuardian {
 }
 
 model StudentAcademicProfile {
-  id             String   @id @default(uuid()) @db.Uuid
-  organizationId String   @db.Uuid
-  studentId      String   @db.Uuid
-  academicYearId String   @db.Uuid
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  studentId      String    @db.Uuid
+  academicYearId String    @db.Uuid
   studentCode    String
   qrTokenHash    String
-  qrVersion      Int      @default(1)
+  qrVersion      Int       @default(1)
   qrRotatedAt    DateTime?
   gradeLevel     String
-  status         String   @default("ACTIVE")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  status         String    @default("ACTIVE")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id])
   student      Student      @relation(fields: [studentId], references: [id])
@@ -382,8 +387,8 @@ model StudentAcademicProfile {
 model CodeSequence {
   organizationId String @db.Uuid
   academicYearId String @db.Uuid
-  entityType      String
-  lastValue       Int    @default(0)
+  entityType     String
+  lastValue      Int    @default(0)
 
   organization Organization @relation(fields: [organizationId], references: [id])
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
@@ -406,12 +411,13 @@ model Enrollment {
   createdAt                DateTime         @default(now())
   updatedAt                DateTime         @updatedAt
 
-  organization Organization           @relation(fields: [organizationId], references: [id])
-  academicYear AcademicYear           @relation(fields: [academicYearId], references: [id])
-  profile      StudentAcademicProfile @relation(fields: [studentAcademicProfileId], references: [id])
-  center       Center                 @relation(fields: [centerId], references: [id])
-  attendance   AttendanceRecord[]
-  grades       Grade[]
+  organization     Organization             @relation(fields: [organizationId], references: [id])
+  academicYear     AcademicYear             @relation(fields: [academicYearId], references: [id])
+  profile          StudentAcademicProfile   @relation(fields: [studentAcademicProfileId], references: [id])
+  center           Center                   @relation(fields: [centerId], references: [id])
+  attendance       AttendanceRecord[]
+  grades           Grade[]
+  weeklyAttendance WeeklyAttendanceResult[]
 
   @@index([organizationId, centerId, status])
 }
@@ -420,12 +426,12 @@ model Lesson {
   id               String       @id @default(uuid()) @db.Uuid
   organizationId   String       @db.Uuid
   academicYearId   String       @db.Uuid
-  centerId         String       @db.Uuid
+  centerId         String?      @db.Uuid
   weeklySlotKey    String?
   title            String?
   lessonDate       DateTime     @db.Date
   startsAt         DateTime
-  endsAt           DateTime
+  endsAt           DateTime?
   lateAfterMinutes Int          @default(15)
   status           LessonStatus @default(DRAFT)
   openedById       String?      @db.Uuid
@@ -436,39 +442,75 @@ model Lesson {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
-  organization Organization       @relation(fields: [organizationId], references: [id])
-  academicYear AcademicYear       @relation(fields: [academicYearId], references: [id])
-  center       Center             @relation(fields: [centerId], references: [id])
-  openedBy     User?              @relation("LessonOpenedBy", fields: [openedById], references: [id])
-  closedBy     User?              @relation("LessonClosedBy", fields: [closedById], references: [id])
+  organization Organization        @relation(fields: [organizationId], references: [id])
+  academicYear AcademicYear        @relation(fields: [academicYearId], references: [id])
+  center       Center?             @relation(fields: [centerId], references: [id])
+  openedBy     User?               @relation("LessonOpenedBy", fields: [openedById], references: [id])
+  closedBy     User?               @relation("LessonClosedBy", fields: [closedById], references: [id])
   attendance   AttendanceRecord[]
+  scopes       LessonCenterScope[]
+  assessment   Exam?
 
-  @@index([organizationId, centerId, lessonDate, status])
   @@unique([organizationId, academicYearId, centerId, weeklySlotKey])
+  @@index([organizationId, centerId, lessonDate, status])
+}
+
+model LessonCenterScope {
+  lessonId String @db.Uuid
+  centerId String @db.Uuid
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  center Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  @@id([lessonId, centerId])
+  @@index([centerId])
+}
+
+model WeeklyAttendanceResult {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  academicYearId String   @db.Uuid
+  enrollmentId   String   @db.Uuid
+  studentId      String   @db.Uuid
+  centerId       String   @db.Uuid
+  weekStart      DateTime @db.Date
+  weekEnd        DateTime @db.Date
+  status         String   @default("ABSENT")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  enrollment   Enrollment   @relation(fields: [enrollmentId], references: [id])
+  student      Student      @relation(fields: [studentId], references: [id])
+  center       Center       @relation(fields: [centerId], references: [id])
+
+  @@unique([enrollmentId, weekStart])
+  @@index([organizationId, academicYearId, weekStart])
+  @@index([organizationId, studentId, status])
 }
 
 model AttendanceRecord {
-  id               String           @id @default(uuid()) @db.Uuid
-  organizationId   String           @db.Uuid
-  lessonId         String           @db.Uuid
-  enrollmentId     String           @db.Uuid
-  studentId        String           @db.Uuid
-  status           AttendanceStatus
-  checkInAt        DateTime?
-  method           AttendanceMethod
-  recordedById     String           @db.Uuid
-  correctionReason String?
-  isGuestAttendance Boolean         @default(false)
-  originalCenterId String?          @db.Uuid
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  id                String           @id @default(uuid()) @db.Uuid
+  organizationId    String           @db.Uuid
+  lessonId          String           @db.Uuid
+  enrollmentId      String           @db.Uuid
+  studentId         String           @db.Uuid
+  status            AttendanceStatus
+  checkInAt         DateTime?
+  method            AttendanceMethod
+  recordedById      String           @db.Uuid
+  correctionReason  String?
+  isGuestAttendance Boolean          @default(false)
+  originalCenterId  String?          @db.Uuid
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
-  organization  Organization @relation(fields: [organizationId], references: [id])
-  lesson        Lesson       @relation(fields: [lessonId], references: [id])
-  enrollment    Enrollment   @relation(fields: [enrollmentId], references: [id])
-  student       Student      @relation(fields: [studentId], references: [id])
-  recordedBy    User         @relation("AttendanceRecordedBy", fields: [recordedById], references: [id])
-  originalCenter Center?     @relation("AttendanceOriginalCenter", fields: [originalCenterId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  lesson         Lesson       @relation(fields: [lessonId], references: [id])
+  enrollment     Enrollment   @relation(fields: [enrollmentId], references: [id])
+  student        Student      @relation(fields: [studentId], references: [id])
+  recordedBy     User         @relation("AttendanceRecordedBy", fields: [recordedById], references: [id])
+  originalCenter Center?      @relation("AttendanceOriginalCenter", fields: [originalCenterId], references: [id])
 
   @@unique([lessonId, enrollmentId])
   @@index([organizationId, lessonId, status])
@@ -479,6 +521,7 @@ model Exam {
   id             String     @id @default(uuid()) @db.Uuid
   organizationId String     @db.Uuid
   academicYearId String     @db.Uuid
+  lessonId       String?    @unique @db.Uuid
   name           String
   type           ExamType
   examDate       DateTime   @db.Date
@@ -491,9 +534,10 @@ model Exam {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
-  organization Organization     @relation(fields: [organizationId], references: [id])
-  academicYear AcademicYear     @relation(fields: [academicYearId], references: [id])
-  createdBy    User             @relation("ExamCreatedBy", fields: [createdById], references: [id])
+  organization Organization           @relation(fields: [organizationId], references: [id])
+  academicYear AcademicYear           @relation(fields: [academicYearId], references: [id])
+  lesson       Lesson?                @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  createdBy    User                   @relation("ExamCreatedBy", fields: [createdById], references: [id])
   assignments  ExamCenterAssignment[]
   grades       Grade[]
 
@@ -536,15 +580,15 @@ model Grade {
 }
 
 model GradeChangeHistory {
-  id        String      @id @default(uuid()) @db.Uuid
-  gradeId   String      @db.Uuid
-  oldScore  Decimal?    @db.Decimal(8, 2)
-  newScore  Decimal?    @db.Decimal(8, 2)
-  oldStatus GradeStatus
-  newStatus GradeStatus
-  reason    String
-  changedById String    @db.Uuid
-  changedAt DateTime    @default(now())
+  id          String      @id @default(uuid()) @db.Uuid
+  gradeId     String      @db.Uuid
+  oldScore    Decimal?    @db.Decimal(8, 2)
+  newScore    Decimal?    @db.Decimal(8, 2)
+  oldStatus   GradeStatus
+  newStatus   GradeStatus
+  reason      String
+  changedById String      @db.Uuid
+  changedAt   DateTime    @default(now())
 
   grade     Grade @relation(fields: [gradeId], references: [id], onDelete: Cascade)
   changedBy User  @relation(fields: [changedById], references: [id])
@@ -568,7 +612,6 @@ model AuditLog {
 
   @@index([organizationId, actorUserId, entityType, createdAt])
 }
-
 
 model ImportJob {
   id              String       @id @default(uuid()) @db.Uuid

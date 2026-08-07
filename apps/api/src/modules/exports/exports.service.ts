@@ -158,8 +158,16 @@ export class ExportsService {
 
   private async addAttendanceSheet(workbook: ExcelJS.Workbook, user: RequestUser): Promise<number> {
     const rows = await this.prisma.attendanceRecord.findMany({
-      where: { organizationId: user.organizationId, lesson: { center: this.scope.centerWhere(user) } },
-      include: { student: true, lesson: { include: { center: true } } },
+      where: {
+        organizationId: user.organizationId,
+        lesson: {
+          OR: [
+            { center: this.scope.centerWhere(user) },
+            { scopes: { some: { center: this.scope.centerWhere(user) } } },
+          ],
+        },
+      },
+      include: { student: true, enrollment: { include: { center: true } }, lesson: { include: { center: true } } },
       orderBy: { createdAt: 'desc' },
       take: 50_000,
     });
@@ -173,7 +181,7 @@ export class ExportsService {
       { header: 'وقت التسجيل', key: 'time', width: 24 },
       { header: 'الطريقة', key: 'method', width: 14 },
     ];
-    rows.forEach((row) => sheet.addRow({ student: this.safeCell(row.student.fullName), center: row.lesson.center.name, lesson: row.lesson.title ?? 'حصة', status: row.status, time: row.checkInAt?.toISOString() ?? '', method: row.method }));
+    rows.forEach((row) => sheet.addRow({ student: this.safeCell(row.student.fullName), center: row.lesson.center?.name ?? row.enrollment.center.name, lesson: row.lesson.title ?? 'حصة', status: row.status, time: row.checkInAt?.toISOString() ?? '', method: row.method }));
     this.styleSheet(sheet);
     return rows.length;
   }

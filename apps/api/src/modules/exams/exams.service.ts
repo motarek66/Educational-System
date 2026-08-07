@@ -14,6 +14,7 @@ export class ExamsService {
     const exams = await this.prisma.exam.findMany({
       where: {
         organizationId: user.organizationId,
+        lessonId: null,
         assignments: { some: { center: this.scope.centerWhere(user) } },
       },
       include: {
@@ -75,6 +76,7 @@ export class ExamsService {
         centerId: { in: centerIds },
         academicYearId: exam.academicYearId,
         status: 'ACTIVE',
+        ...(exam.lessonId ? { attendance: { some: { lessonId: exam.lessonId } } } : {}),
       },
       include: {
         profile: { include: { student: true } },
@@ -120,6 +122,7 @@ export class ExamsService {
         organizationId: user.organizationId,
         centerId: { in: exam.assignments.map(({ centerId }) => centerId) },
         academicYearId: exam.academicYearId,
+        ...(exam.lessonId ? { attendance: { some: { lessonId: exam.lessonId } } } : {}),
       },
       include: { profile: true },
     });
@@ -138,33 +141,46 @@ export class ExamsService {
       }
     }
 
-    await this.prisma.$transaction(
-      dto.grades.map((item) => {
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of dto.grades) {
         const enrollment = enrollmentMap.get(item.enrollmentId)!;
         const percentage = item.status === GradeStatus.GRADED && item.score !== null
           ? new Prisma.Decimal((item.score / maxScore) * 100)
           : null;
-        return this.prisma.grade.upsert({
-          where: { examId_enrollmentId: { examId, enrollmentId: item.enrollmentId } },
-          create: {
-            organizationId: user.organizationId,
-            examId,
-            enrollmentId: item.enrollmentId,
-            studentId: enrollment.profile.studentId,
-            score: item.score,
-            status: item.status,
-            percentage,
-            enteredById: user.id,
-          },
-          update: {
-            score: item.score,
-            status: item.status,
-            percentage,
-            enteredById: user.id,
-          },
-        });
-      }),
-    );
+        const existing = await tx.grade.findUnique({ where: { examId_enrollmentId: { examId, enrollmentId: item.enrollmentId } } });
+        const grade = existing
+          ? await tx.grade.update({
+              where: { id: existing.id },
+              data: { score: item.score, status: item.status, percentage, enteredById: user.id },
+            })
+          : await tx.grade.create({
+              data: {
+                organizationId: user.organizationId,
+                examId,
+                enrollmentId: item.enrollmentId,
+                studentId: enrollment.profile.studentId,
+                score: item.score,
+                status: item.status,
+                percentage,
+                enteredById: user.id,
+              },
+            });
+        const scoreChanged = Number(existing?.score ?? 0) !== Number(item.score ?? 0);
+        if (existing && (scoreChanged || existing.status !== item.status)) {
+          await tx.gradeChangeHistory.create({
+            data: {
+              gradeId: grade.id,
+              oldScore: existing.score,
+              newScore: item.score,
+              oldStatus: existing.status,
+              newStatus: item.status,
+              reason: exam.lessonId ? 'تعديل درجة الحصة من الاختبارات' : 'تعديل درجة الامتحان',
+              changedById: user.id,
+            },
+          });
+        }
+      }
+    });
     return { saved: dto.grades.length };
   }
 
@@ -175,7 +191,9 @@ export class ExamsService {
     }
     const centerIds = exam.assignments.map(({ centerId }) => centerId);
     const [expected, entered] = await this.prisma.$transaction([
-      this.prisma.enrollment.count({ where: { centerId: { in: centerIds }, academicYearId: exam.academicYearId, status: 'ACTIVE' } }),
+      exam.lessonId
+        ? this.prisma.attendanceRecord.count({ where: { lessonId: exam.lessonId } })
+        : this.prisma.enrollment.count({ where: { centerId: { in: centerIds }, academicYearId: exam.academicYearId, status: 'ACTIVE' } }),
       this.prisma.grade.count({ where: { examId, status: { not: GradeStatus.NOT_SUBMITTED } } }),
     ]);
     if (entered < expected) {

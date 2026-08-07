@@ -26,7 +26,7 @@ export class DashboardService {
 
     const lessonScope: Prisma.LessonWhereInput = {
       organizationId: user.organizationId,
-      center: this.scope.centerWhere(user),
+      scopes: { some: { center: this.scope.centerWhere(user) } },
     };
 
     const [activeStudents, centers, todayLessons, attendanceRows, gradeAggregate, recentAudit] = await this.prisma.$transaction([
@@ -44,7 +44,7 @@ export class DashboardService {
         where: {
           organizationId: user.organizationId,
           createdAt: { gte: monthStart },
-          lesson: { center: this.scope.centerWhere(user) },
+          lesson: { scopes: { some: { center: this.scope.centerWhere(user) } } },
         },
         select: { status: true, createdAt: true },
       }),
@@ -63,7 +63,20 @@ export class DashboardService {
         where: { organizationId: user.organizationId },
         orderBy: { createdAt: 'desc' },
         take: 8,
-        select: { id: true, action: true, entityType: true, createdAt: true, actor: { select: { fullName: true } } },
+        select: {
+          id: true,
+          action: true,
+          entityType: true,
+          createdAt: true,
+          actor: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              roles: { select: { role: { select: { name: true } } } },
+            },
+          },
+        },
       }),
     ]);
 
@@ -86,23 +99,45 @@ export class DashboardService {
       };
     });
 
-    const absenceCounts = await this.prisma.attendanceRecord.groupBy({
+    const absenceCounts = await this.prisma.weeklyAttendanceResult.groupBy({
       by: ['studentId'],
       where: {
         organizationId: user.organizationId,
         status: 'ABSENT',
         createdAt: { gte: monthStart },
-        lesson: { center: this.scope.centerWhere(user) },
+        center: this.scope.centerWhere(user),
       },
       _count: { _all: true },
       orderBy: { _count: { studentId: 'desc' } },
       take: 5,
     });
-    const riskStudents = await this.prisma.student.findMany({
-      where: { id: { in: absenceCounts.map(({ studentId }) => studentId) } },
+    const lateCounts = await this.prisma.attendanceRecord.groupBy({
+      by: ['studentId'],
+      where: {
+        organizationId: user.organizationId,
+        status: 'LATE',
+        createdAt: { gte: monthStart },
+        lesson: { scopes: { some: { center: this.scope.centerWhere(user) } } },
+      },
+      _count: { _all: true },
+      orderBy: { _count: { studentId: 'desc' } },
+      take: 5,
+    });
+    const rankedStudents = await this.prisma.student.findMany({
+      where: { id: { in: [...new Set([...absenceCounts, ...lateCounts].map(({ studentId }) => studentId))] } },
       select: { id: true, fullName: true },
     });
+    const studentMap = new Map(rankedStudents.map((student) => [student.id, student]));
     const riskMap = new Map(absenceCounts.map((row) => [row.studentId, row._count._all]));
+    const lateMap = new Map(lateCounts.map((row) => [row.studentId, row._count._all]));
+    const mostAbsentStudents = absenceCounts.flatMap((row) => {
+      const student = studentMap.get(row.studentId);
+      return student ? [{ id: student.id, fullName: student.fullName, count: riskMap.get(student.id) ?? 0 }] : [];
+    });
+    const mostLateStudents = lateCounts.flatMap((row) => {
+      const student = studentMap.get(row.studentId);
+      return student ? [{ id: student.id, fullName: student.fullName, count: lateMap.get(student.id) ?? 0 }] : [];
+    });
 
     return {
       activeStudents,
@@ -111,17 +146,29 @@ export class DashboardService {
       attendanceRate,
       gradeAverage: Number(gradeAggregate._avg.percentage ?? 0),
       attendanceTrend,
-      atRiskStudents: riskStudents.map((student) => ({
+      mostAbsentStudents,
+      mostLateStudents,
+      atRiskStudents: mostAbsentStudents.map((student) => ({
         id: student.id,
         fullName: student.fullName,
-        reason: 'غياب متكرر خلال آخر 30 يومًا',
-        value: `${riskMap.get(student.id) ?? 0} غياب`,
+        reason: 'غياب أسبوعي متكرر خلال آخر 30 يومًا',
+        value: `${student.count} غياب`,
       })),
       recentActivity: recentAudit.map((item) => ({
         id: item.id,
+        action: item.action,
+        entityType: item.entityType,
         title: this.actionLabel(item.action),
-        description: `${item.actor?.fullName ?? 'النظام'} · ${item.entityType}`,
+        description: this.entityLabel(item.entityType),
         createdAt: item.createdAt.toISOString(),
+        actor: item.actor
+          ? {
+              id: item.actor.id,
+              fullName: item.actor.fullName,
+              email: item.actor.email,
+              isSuperAdmin: item.actor.roles.some(({ role }) => role.name === 'SUPER_ADMIN'),
+            }
+          : null,
       })),
     };
   }
@@ -132,8 +179,32 @@ export class DashboardService {
       LESSON_CLOSED: 'إغلاق حصة واعتماد الحضور',
       EXAM_PUBLISHED: 'نشر درجات امتحان',
       EXPORT_CREATED: 'إنشاء ملف تصدير',
+      IMPORT_COMMITTED: 'اعتماد ملف استيراد',
       USER_CREATED: 'إضافة مستخدم',
+      STUDENT_ARCHIVED: 'أرشفة طالب',
+      STUDENT_QR_ROTATED: 'تحديث رمز QR لطالب',
+      STUDENT_TRANSFERRED: 'نقل طالب',
+      LESSON_STARTED: 'بدء حصة جديدة',
+      ROLE_PERMISSIONS_UPDATED: 'تحديث صلاحيات دور',
+      USER_SCOPES_UPDATED: 'تحديث نطاقات مستخدم',
+      WHATSAPP_TEMPLATE_CREATED: 'إنشاء قالب واتساب',
+      WHATSAPP_TEMPLATE_UPDATED: 'تحديث قالب واتساب',
+      WHATSAPP_TEMPLATE_DELETED: 'حذف قالب واتساب',
     };
     return labels[action] ?? action.replaceAll('_', ' ');
+  }
+
+  private entityLabel(entityType: string): string {
+    const labels: Record<string, string> = {
+      Student: 'طالب',
+      Lesson: 'حصة',
+      Exam: 'امتحان',
+      ExportJob: 'ملف تصدير',
+      ImportJob: 'ملف استيراد',
+      User: 'مستخدم',
+      Role: 'دور وصلاحيات',
+      WhatsAppTemplate: 'قالب واتساب',
+    };
+    return labels[entityType] ?? entityType;
   }
 }

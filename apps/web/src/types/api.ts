@@ -37,8 +37,23 @@ export type DashboardOverview = {
   attendanceRate: number;
   gradeAverage: number;
   attendanceTrend: Array<{ label: string; present: number; absent: number }>;
-  recentActivity: Array<{ id: string; title: string; description: string; createdAt: string }>;
+  recentActivity: Array<{
+    id: string;
+    action: string;
+    entityType: string;
+    title: string;
+    description: string;
+    createdAt: string;
+    actor: {
+      id: string;
+      fullName: string;
+      email: string | null;
+      isSuperAdmin: boolean;
+    } | null;
+  }>;
   atRiskStudents: Array<{ id: string; fullName: string; reason: string; value: string }>;
+  mostAbsentStudents: Array<{ id: string; fullName: string; count: number }>;
+  mostLateStudents: Array<{ id: string; fullName: string; count: number }>;
 };
 
 export type StudentListItem = {
@@ -75,18 +90,55 @@ export type StudentProfile = StudentListItem & {
     checkInAt: string | null;
   }>;
   gradeSummary: { average: number; publishedExams: number };
+  weeklyAttendance: Array<{
+    weekStart: string;
+    weekEnd: string;
+    status: 'PRESENT' | 'LATE' | 'ABSENT';
+  }>;
+  lessonGrades: Array<{
+    lessonId: string;
+    title: string;
+    startsAt: string;
+    centerName: string;
+    attendanceStatus: 'PRESENT' | 'LATE' | 'PARTIAL';
+    score: number | null;
+    maxScore: number;
+  }>;
 };
 
 export type LessonListItem = {
   id: string;
   title: string;
-  lessonDate: string;
   startsAt: string;
-  endsAt: string;
-  centerName: string;
+  endsAt: string | null;
+  lateAfterMinutes: number;
+  centers: Array<{ id: string; name: string }>;
   status: 'DRAFT' | 'OPEN' | 'CLOSED' | 'CANCELLED';
+  registeredCount: number;
   presentCount: number;
-  expectedCount: number;
+  lateCount: number;
+  gradesEntered: number;
+  maxScore: number | null;
+};
+
+export type LessonDetails = Omit<LessonListItem, 'registeredCount' | 'presentCount' | 'lateCount' | 'gradesEntered' | 'maxScore'> & {
+  lateAt: string;
+  academicYearId: string;
+  assessment: { id: string; maxScore: number } | null;
+  rows: Array<{
+    attendanceId: string;
+    enrollmentId: string;
+    studentId: string;
+    studentCode: string;
+    fullName: string;
+    centerName: string;
+    gradeLevel: string;
+    checkInAt: string;
+    attendanceStatus: 'PRESENT' | 'LATE' | 'PARTIAL';
+    score: number | null;
+    gradeUpdatedAt: string | null;
+  }>;
+  summary: { registered: number; present: number; late: number; gradesEntered: number };
 };
 
 export type AttendanceScanResult = {
@@ -99,7 +151,7 @@ export type AttendanceScanResult = {
     studentCode: string;
     photoUrl: string | null;
   };
-  lesson: { id: string; title: string; month: number; year: number; week: number };
+  lesson: { id: string; title: string; startsAt: string };
   lessonStats: { present: number; late: number; expected: number };
 };
 

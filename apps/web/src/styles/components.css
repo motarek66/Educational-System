@@ -345,3 +345,11 @@ details[open] > .attendance-summary .attendance-chevron { transform: rotate(180d
 @media (max-width: 479.98px) {
   .attendance-weeks { grid-template-columns: 1fr; }
 }
+.live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--color-success-500);
+  box-shadow: 0 0 0 5px var(--color-success-50);
+  flex: 0 0 auto;
+}

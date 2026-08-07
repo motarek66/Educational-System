@@ -4,6 +4,7 @@ import {
   Bell,
   BookOpenCheck,
   Building2,
+  CalendarRange,
   GraduationCap,
   HelpCircle,
   LayoutDashboard,
@@ -39,6 +40,7 @@ const notificationLabels: Record<string, string> = {
   STUDENT_ARCHIVED: 'تمت أرشفة طالب',
   STUDENT_TRANSFERRED: 'تم نقل طالب إلى سنتر آخر',
   LESSON_CLOSED: 'تم إغلاق حصة واعتماد الحضور',
+  LESSON_STARTED: 'تم بدء حصة جديدة',
   EXAM_PUBLISHED: 'تم نشر درجات امتحان',
   USER_CREATED: 'تمت إضافة مستخدم جديد',
   IMPORT_COMMITTED: 'تم اعتماد ملف استيراد',
@@ -50,6 +52,7 @@ const primaryNav = [
   { to: '/students', label: 'الطلاب', icon: GraduationCap },
   { to: '/centers', label: 'السناتر', icon: Building2 },
   { to: '/attendance', label: 'الحضور', icon: ScanLine },
+  { to: '/lessons', label: 'الحصص', icon: CalendarRange },
   { to: '/exams', label: 'الامتحانات', icon: BookOpenCheck },
   { to: '/reports', label: 'التقارير', icon: BarChart3 },
 ];
@@ -64,6 +67,7 @@ const routeTitles: Record<string, string> = {
   '/students': 'الطلاب',
   '/centers': 'السناتر',
   '/attendance': 'الحضور والحصص',
+  '/lessons': 'الحصص',
   '/exams': 'الامتحانات والدرجات',
   '/reports': 'التقارير والتصدير',
   '/supervisors': 'المشرفون والصلاحيات',
@@ -149,8 +153,11 @@ export function AppShell() {
                     {!notificationsQuery.isLoading && notifications.length === 0 ? <div className="p-3 text-secondary small">لا توجد إشعارات جديدة.</div> : null}
                     {notifications.map((item) => {
                       const content = <><span className="notification-menu__icon"><Bell size={15} /></span><span className="flex-grow-1"><strong className="d-block small">{notificationLabels[item.action] ?? item.action.replaceAll('_', ' ')}</strong><span className="text-secondary" style={{ fontSize: 11 }}>{item.actor?.fullName ?? 'النظام'} · {formatDateTime(item.createdAt)}</span></span></>;
-                      return item.entityType === 'Student' && item.entityId
-                        ? <NavLink key={item.id} to={`/students/${item.entityId}`} className="notification-menu__item" onClick={() => setNotificationsOpen(false)}>{content}</NavLink>
+                      const target = item.entityType === 'Student' && item.entityId
+                        ? `/students/${item.entityId}`
+                        : item.entityType === 'Lesson' && item.entityId ? `/lessons/${item.entityId}` : null;
+                      return target
+                        ? <NavLink key={item.id} to={target} className="notification-menu__item" onClick={() => setNotificationsOpen(false)}>{content}</NavLink>
                         : <div key={item.id} className="notification-menu__item">{content}</div>;
                     })}
                   </div>

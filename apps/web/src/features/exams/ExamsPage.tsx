@@ -9,17 +9,28 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { StatusBadge, examStatusMeta } from '../../components/ui/StatusBadge';
 import { api, getApiErrorMessage } from '../../lib/api/client';
 import { formatDate, formatNumber } from '../../lib/formatting';
-import type { ApiResponse, ExamListItem } from '../../types/api';
+import type { ApiResponse, ExamListItem, LessonListItem } from '../../types/api';
 
 export function ExamsPage() {
   const query = useQuery({
     queryKey: ['exams'],
     queryFn: async () => (await api.get<ApiResponse<ExamListItem[]>>('/exams')).data.data,
   });
+  const lessonsQuery = useQuery({
+    queryKey: ['lessons'],
+    queryFn: async () => (await api.get<ApiResponse<LessonListItem[]>>('/lessons')).data.data,
+  });
 
   return (
     <>
       <PageHeader title="الامتحانات والدرجات" subtitle="أنشئ الامتحانات، أدخل الدرجات، راجعها ثم انشرها بأمان." actions={<Button><FilePlus2 size={18} /> إنشاء امتحان</Button>} />
+      <Card className="panel mb-3">
+        <div className="panel__header"><div><h2 className="panel__title">تقييمات الحصص</h2><p className="panel__subtitle">الحصة الجارية والحصص السابقة؛ الدرجات متاحة للطلاب الذين حضروا فقط.</p></div></div>
+        <div className="row g-2">
+          {lessonsQuery.data?.slice(0, 8).map((lesson) => <div className="col-md-6 col-xl-3" key={lesson.id}><Link to={`/lessons/${lesson.id}`} className="d-block rounded-3 p-3 text-decoration-none text-body h-100" style={{ background: 'var(--surface-subtle)' }}><div className="d-flex justify-content-between gap-2"><strong className="small">{lesson.title}</strong><StatusBadge label={lesson.status === 'OPEN' ? 'جارية' : 'سابقة'} tone={lesson.status === 'OPEN' ? 'success' : 'neutral'} /></div><div className="text-secondary mt-2" style={{ fontSize: 11 }}>{formatDate(lesson.startsAt)} · {formatNumber(lesson.gradesEntered)} درجة</div></Link></div>)}
+          {!lessonsQuery.isLoading && lessonsQuery.data?.length === 0 ? <div className="text-secondary text-center py-3">لا توجد تقييمات حصص بعد.</div> : null}
+        </div>
+      </Card>
       {query.isError ? <ErrorState message={getApiErrorMessage(query.error)} onRetry={() => void query.refetch()} /> : null}
       {query.isLoading ? <Card className="skeleton" style={{ height: 420 }} /> : null}
       {!query.isLoading && !query.isError && query.data?.length === 0 ? <EmptyState title="لا توجد امتحانات" description="أنشئ أول امتحان وحدد السناتر المستهدفة والدرجة النهائية." action={<Button><FilePlus2 size={18} /> إنشاء امتحان</Button>} /> : null}

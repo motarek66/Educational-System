@@ -9,7 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { MetricCard } from '../../components/ui/MetricCard';
 import { StatusBadge, studentStatusMeta } from '../../components/ui/StatusBadge';
 import { api, getApiErrorMessage } from '../../lib/api/client';
-import { formatNumber, formatPercent } from '../../lib/formatting';
+import { formatDateTime, formatNumber, formatPercent } from '../../lib/formatting';
 import { can } from '../../lib/permissions/can';
 import type { ApiResponse, StudentProfile } from '../../types/api';
 import { useAuth } from '../auth/AuthContext';
@@ -211,6 +211,20 @@ export function StudentProfilePage() {
         </Card>
       </div>
       <AttendanceAcademicYear student={student} />
+      <div className="dashboard-grid mt-3">
+        <Card className="panel">
+          <div className="panel__header"><div><h2 className="panel__title">الحضور الأسبوعي</h2><p className="panel__subtitle">النتيجة النهائية لكل أسبوع من السبت إلى الجمعة</p></div></div>
+          <div className="d-grid gap-2">
+            {student.weeklyAttendance.length === 0 ? <div className="text-secondary text-center py-4">لا توجد نتائج أسبوعية مكتملة بعد.</div> : [...student.weeklyAttendance].reverse().map((week) => <div className="d-flex justify-content-between align-items-center gap-3 rounded-3 p-3" style={{ background: 'var(--surface-subtle)' }} key={week.weekStart}><div><strong className="small">أسبوع {new Intl.DateTimeFormat('ar-EG', { day: 'numeric', month: 'short' }).format(new Date(week.weekStart))}</strong><div className="text-secondary mt-1" style={{ fontSize: 11 }}>حتى {new Intl.DateTimeFormat('ar-EG', { day: 'numeric', month: 'short' }).format(new Date(week.weekEnd))}</div></div><StatusBadge label={week.status === 'ABSENT' ? 'غائب' : week.status === 'LATE' ? 'متأخر' : 'حاضر'} tone={week.status === 'ABSENT' ? 'danger' : week.status === 'LATE' ? 'warning' : 'success'} /></div>)}
+          </div>
+        </Card>
+        <Card className="panel">
+          <div className="panel__header"><div><h2 className="panel__title">درجات الحصص</h2><p className="panel__subtitle">كل الحصص التي حضرها الطالب ودرجة كل حصة</p></div></div>
+          <div className="d-grid gap-2">
+            {student.lessonGrades.length === 0 ? <div className="text-secondary text-center py-4">لا توجد حصص مسجلة بعد.</div> : [...student.lessonGrades].reverse().map((item) => <Link to={`/lessons/${item.lessonId}`} className="d-flex justify-content-between align-items-center gap-3 rounded-3 p-3 text-decoration-none text-body" style={{ background: 'var(--surface-subtle)' }} key={item.lessonId}><div><strong className="small">{item.title}</strong><div className="text-secondary mt-1" style={{ fontSize: 11 }}>{item.centerName} · {formatDateTime(item.startsAt)}</div></div><StatusBadge label={item.score === null ? 'لم تُسجل' : `${formatNumber(item.score)} / ${formatNumber(item.maxScore)}`} tone={item.score === null ? 'neutral' : 'primary'} /></Link>)}
+          </div>
+        </Card>
+      </div>
       <StudentQrDialog studentId={studentId} studentName={student.fullName} open={qrOpen} onClose={() => setQrOpen(false)} />
       <WhatsAppDialog student={student} open={whatsAppOpen} onClose={() => setWhatsAppOpen(false)} />
       <StudentFormDialog open={editOpen} studentId={studentId} onClose={() => setEditOpen(false)} />

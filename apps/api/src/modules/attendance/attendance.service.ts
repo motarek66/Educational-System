@@ -49,8 +49,18 @@ export class AttendanceService {
     this.scope.assertCenter(user, enrollment.centerId);
 
     const now = new Date();
-    const slot = this.attendanceSlot(now);
-    const lesson = await this.getOrCreateWeeklyLesson(user, enrollment.centerId, profile.academicYearId, now, slot);
+    const lesson = await this.prisma.lesson.findFirst({
+      where: {
+        organizationId: user.organizationId,
+        academicYearId: profile.academicYearId,
+        status: 'OPEN',
+        scopes: { some: { centerId: enrollment.centerId } },
+      },
+      orderBy: { startsAt: 'desc' },
+    });
+    if (!lesson) {
+      throw new DomainError('LESSON_NOT_OPEN', 'لا توجد حصة جارية متاحة لهذا الطالب. ابدأ الحصة أولًا.', HttpStatus.CONFLICT);
+    }
     const lateAt = new Date(lesson.startsAt.getTime() + lesson.lateAfterMinutes * 60_000);
     const status = now > lateAt ? 'LATE' : 'PRESENT';
 
@@ -70,7 +80,13 @@ export class AttendanceService {
       const [present, late, expected] = await this.prisma.$transaction([
         this.prisma.attendanceRecord.count({ where: { lessonId: lesson.id, status: 'PRESENT' } }),
         this.prisma.attendanceRecord.count({ where: { lessonId: lesson.id, status: 'LATE' } }),
-        this.prisma.enrollment.count({ where: { centerId: lesson.centerId, academicYearId: lesson.academicYearId, status: 'ACTIVE' } }),
+        this.prisma.enrollment.count({
+          where: {
+            center: { lessonScopes: { some: { lessonId: lesson.id } } },
+            academicYearId: lesson.academicYearId,
+            status: 'ACTIVE',
+          },
+        }),
       ]);
       return {
         attendanceId: record.id,
@@ -84,10 +100,8 @@ export class AttendanceService {
         },
         lesson: {
           id: lesson.id,
-          title: lesson.title ?? `حصة الأسبوع ${slot.week}`,
-          month: slot.month,
-          year: slot.year,
-          week: slot.week,
+          title: lesson.title ?? 'الحصة الجارية',
+          startsAt: lesson.startsAt.toISOString(),
         },
         lessonStats: { present, late, expected },
       };
@@ -99,7 +113,7 @@ export class AttendanceService {
         });
         throw new DomainError(
           'ATTENDANCE_ALREADY_RECORDED',
-          'تم تسجيل حضور الطالب مسبقًا في حصة هذا الأسبوع.',
+          'تم تسجيل حضور الطالب مسبقًا في هذه الحصة.',
           HttpStatus.CONFLICT,
           { recordedAt: existing?.checkInAt, recordedBy: existing?.recordedBy.fullName },
         );
@@ -108,56 +122,4 @@ export class AttendanceService {
     }
   }
 
-  private async getOrCreateWeeklyLesson(
-    user: RequestUser,
-    centerId: string,
-    academicYearId: string,
-    now: Date,
-    slot: { key: string; year: number; month: number; day: number; week: number },
-  ) {
-    const where = { organizationId: user.organizationId, academicYearId, centerId, weeklySlotKey: slot.key };
-    const existing = await this.prisma.lesson.findFirst({ where });
-    if (existing) return existing;
-
-    const monthName = new Intl.DateTimeFormat('ar-EG', { month: 'long', timeZone: process.env.APP_TIMEZONE ?? 'Africa/Cairo' }).format(now);
-    try {
-      return await this.prisma.lesson.create({
-        data: {
-          organizationId: user.organizationId,
-          academicYearId,
-          centerId,
-          weeklySlotKey: slot.key,
-          title: `حصة الأسبوع ${slot.week} - ${monthName}`,
-          lessonDate: new Date(Date.UTC(slot.year, slot.month - 1, slot.day)),
-          startsAt: now,
-          endsAt: new Date(now.getTime() + 2 * 60 * 60_000),
-          lateAfterMinutes: 15,
-          status: 'OPEN',
-          openedById: user.id,
-          openedAt: now,
-        },
-      });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        const concurrent = await this.prisma.lesson.findFirst({ where });
-        if (concurrent) return concurrent;
-      }
-      throw error;
-    }
-  }
-
-  private attendanceSlot(now: Date) {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: process.env.APP_TIMEZONE ?? 'Africa/Cairo',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(now);
-    const read = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((part) => part.type === type)?.value);
-    const year = read('year');
-    const month = read('month');
-    const day = read('day');
-    const week = Math.min(4, Math.ceil(day / 7));
-    return { key: `${year}-${String(month).padStart(2, '0')}-W${week}`, year, month, day, week };
-  }
 }

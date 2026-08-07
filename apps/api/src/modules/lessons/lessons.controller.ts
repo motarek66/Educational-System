@@ -1,20 +1,33 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { IsBoolean } from 'class-validator';
+import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import type { RequestUser } from '../../common/guards/auth.guard';
-import { CreateLessonDto } from './lessons.dto';
+import { CreateLessonDto, SaveLessonGradeDto } from './lessons.dto';
 import { LessonsService } from './lessons.service';
-
-class CloseLessonDto { @IsBoolean() markAbsent!: boolean; }
 
 @Controller('lessons')
 export class LessonsController {
   constructor(private readonly lessons: LessonsService) {}
 
+  @Get()
+  @RequirePermissions('attendance.view')
+  list(@CurrentUser() user: RequestUser, @Query('status') status?: string) { return this.lessons.list(user, status); }
+
+  @Get('active')
+  @RequirePermissions('attendance.view')
+  active(@CurrentUser() user: RequestUser) { return this.lessons.active(user); }
+
   @Get('today')
   @RequirePermissions('attendance.view')
   today(@CurrentUser() user: RequestUser) { return this.lessons.today(user); }
+
+  @Get(':id')
+  @RequirePermissions('attendance.view')
+  details(@CurrentUser() user: RequestUser, @Param('id') id: string) { return this.lessons.details(user, id); }
+
+  @Post('start')
+  @RequirePermissions('lessons.create')
+  start(@CurrentUser() user: RequestUser) { return this.lessons.start(user); }
 
   @Post()
   @RequirePermissions('lessons.create')
@@ -25,6 +38,12 @@ export class LessonsController {
   open(@CurrentUser() user: RequestUser, @Param('id') id: string) { return this.lessons.open(user, id); }
 
   @Post(':id/close')
-  @RequirePermissions('attendance.correct')
-  close(@CurrentUser() user: RequestUser, @Param('id') id: string, @Body() dto: CloseLessonDto) { return this.lessons.close(user, id, dto.markAbsent); }
+  @RequirePermissions('lessons.create')
+  close(@CurrentUser() user: RequestUser, @Param('id') id: string) { return this.lessons.close(user, id); }
+
+  @Put(':id/grades/:enrollmentId')
+  @RequirePermissions('grades.enter')
+  saveGrade(@CurrentUser() user: RequestUser, @Param('id') id: string, @Param('enrollmentId') enrollmentId: string, @Body() dto: SaveLessonGradeDto) {
+    return this.lessons.saveGrade(user, id, enrollmentId, dto.score);
+  }
 }

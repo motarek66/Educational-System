@@ -83,6 +83,17 @@ export function DashboardPage() {
         </Card>
       </div>
 
+      <div className="dashboard-grid mt-3">
+        <Card className="panel">
+          <div className="panel__header"><div><h2 className="panel__title">الأكثر غيابًا</h2><p className="panel__subtitle">نتائج الغياب الأسبوعي خلال آخر 30 يومًا</p></div></div>
+          <div className="d-grid gap-2">{data.mostAbsentStudents.length === 0 ? <div className="text-secondary text-center py-4">لا توجد حالات غياب مسجلة.</div> : data.mostAbsentStudents.map((student) => <div className="d-flex justify-content-between align-items-center rounded-3 p-3" style={{ background: 'var(--surface-subtle)' }} key={student.id}><span className="fw-semibold small">{student.fullName}</span><StatusBadge label={`${formatNumber(student.count)} غياب`} tone="danger" /></div>)}</div>
+        </Card>
+        <Card className="panel">
+          <div className="panel__header"><div><h2 className="panel__title">الأكثر تأخيرًا</h2><p className="panel__subtitle">مرات التأخير خلال آخر 30 يومًا</p></div></div>
+          <div className="d-grid gap-2">{data.mostLateStudents.length === 0 ? <div className="text-secondary text-center py-4">لا توجد حالات تأخير مسجلة.</div> : data.mostLateStudents.map((student) => <div className="d-flex justify-content-between align-items-center rounded-3 p-3" style={{ background: 'var(--surface-subtle)' }} key={student.id}><span className="fw-semibold small">{student.fullName}</span><StatusBadge label={`${formatNumber(student.count)} تأخير`} tone="warning" /></div>)}</div>
+        </Card>
+      </div>
+
       <Card className="panel mt-3">
         <div className="panel__header">
           <div><h2 className="panel__title">آخر الأنشطة</h2><p className="panel__subtitle">أحدث العمليات المهمة داخل النظام</p></div>
@@ -93,6 +104,13 @@ export function DashboardPage() {
               <div className="rounded-3 p-3 h-100" style={{ background: 'var(--surface-subtle)' }}>
                 <div className="d-flex justify-content-between gap-3"><strong className="small">{item.title}</strong><span className="text-secondary" style={{ fontSize: 11 }}>{formatDateTime(item.createdAt)}</span></div>
                 <p className="text-secondary small mb-0 mt-1">{item.description}</p>
+                {item.actor ? (
+                  <div className="text-secondary small mt-2">
+                    بواسطة: <span className="fw-semibold text-body">{item.actor.fullName}</span>
+                    {item.actor.email ? <span> ({item.actor.email})</span> : null}
+                    {item.actor.isSuperAdmin ? ' • مسؤول رئيسي' : ' • مشرف'}
+                  </div>
+                ) : <div className="text-secondary small mt-2">بواسطة: النظام</div>}
               </div>
             </div>
           ))}
