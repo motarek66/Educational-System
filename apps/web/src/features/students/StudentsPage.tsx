@@ -41,11 +41,7 @@ export function StudentsPage() {
     placeholderData: (previous) => previous,
   });
 
-  const { exportStudents, isExporting, error: exportError } = useStudentsExport({
-    search,
-    status,
-    academicYearId,
-  });
+  const { exportStudents, isExporting, error: exportError } = useStudentsExport();
 
   const students = query.data?.data ?? [];
   const meta = query.data?.meta;
@@ -137,14 +133,9 @@ export function StudentsPage() {
       <StudentFormDialog open={addOpen} onClose={() => setAddOpen(false)} />
       <StudentFormDialog open={Boolean(editingStudentId)} studentId={editingStudentId} onClose={() => setEditingStudentId(null)} />
 
-      {/* Import dialog — centerId required by API; use empty string as fallback so UI works even when no center filter selected */}
       <StudentImportDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        centerId={academicYearId}
-        {...(academicYearsQuery.data?.find((y) => y.id === academicYearId)?.name
-          ? { centerName: academicYearsQuery.data?.find((y) => y.id === academicYearId)?.name as string }
-          : {})}
       />
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
