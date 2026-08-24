@@ -51,12 +51,12 @@ export function StudentsPage() {
 
       <Card className="toolbar mb-3">
         <SearchField value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="ابحث بالاسم أو الكود أو الهاتف..." />
-        <div className="toolbar__filters">
-          <select className="form-select" style={{ minWidth: 150 }} value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
+        <div className="toolbar__filters d-flex flex-row align-items-center gap-2 flex-wrap">
+          <select className="form-select" style={{ width: 'auto', minWidth: 140 }} value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
             <option value="">كل الحالات</option><option value="ACTIVE">نشط</option><option value="INACTIVE">غير نشط</option><option value="WITHDRAWN">منسحب</option><option value="SUSPENDED">موقوف</option>
           </select>
-          <select className="form-select" style={{ minWidth: 170 }} value={academicYearId} onChange={(event) => { setAcademicYearId(event.target.value); setPage(1); }}><option value="">كل السنوات الدراسية</option>{academicYearsQuery.data?.map((year) => <option key={year.id} value={year.id}>{year.name}</option>)}</select>
-          <select className="form-select" style={{ minWidth: 160 }} value={sort} onChange={(event) => { setSort(event.target.value); setPage(1); }}><option value="newest">الأحدث أولًا</option><option value="oldest">الأقدم أولًا</option><option value="nameAsc">الاسم: أ ← ي</option><option value="nameDesc">الاسم: ي ← أ</option></select>
+          <select className="form-select" style={{ width: 'auto', minWidth: 160 }} value={academicYearId} onChange={(event) => { setAcademicYearId(event.target.value); setPage(1); }}><option value="">كل السنوات الدراسية</option>{academicYearsQuery.data?.map((year) => <option key={year.id} value={year.id}>{year.name}</option>)}</select>
+          <select className="form-select" style={{ width: 'auto', minWidth: 150 }} value={sort} onChange={(event) => { setSort(event.target.value); setPage(1); }}><option value="newest">الأحدث أولًا</option><option value="oldest">الأقدم أولًا</option><option value="nameAsc">الاسم: أ ← ي</option><option value="nameDesc">الاسم: ي ← أ</option></select>
         </div>
       </Card>
 

@@ -71,7 +71,7 @@ function TemplateDialog({ template, open, onClose }: { template: WhatsAppTemplat
   );
 }
 
-export function WhatsAppTemplatesManager() {
+export function WhatsAppTemplatesManager({ onBack }: { onBack?: () => void } = {}) {
   const { user } = useAuth();
   const allowed = can(user, 'whatsapp.manage_templates');
   const queryClient = useQueryClient();
@@ -96,7 +96,10 @@ export function WhatsAppTemplatesManager() {
     <Card className="panel mt-3" id="whatsapp-templates">
       <div className="panel__header">
         <div><h2 className="panel__title">قوالب واتساب</h2><p className="panel__subtitle">أنشئ رسائل جاهزة تُملأ تلقائيًا من ملف الطالب.</p></div>
-        <Button onClick={() => { setEditing(null); setDialogOpen(true); }}><Plus size={18} /> قالب جديد</Button>
+        <div className="d-flex align-items-center gap-2">
+          {onBack && <Button variant="ghost" onClick={onBack}>العودة للإعدادات</Button>}
+          <Button onClick={() => { setEditing(null); setDialogOpen(true); }}><Plus size={18} /> قالب جديد</Button>
+        </div>
       </div>
       {query.isError ? <div className="alert alert-danger border-0">{getApiErrorMessage(query.error)}</div> : null}
       <div className="d-grid gap-2">

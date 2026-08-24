@@ -1,0 +1,413 @@
+.student-card-print-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.student-card-print-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(15 23 42 / 52%);
+  backdrop-filter: blur(1px);
+}
+
+.student-card-print-modal__dialog {
+  position: relative;
+  z-index: 1;
+  width: min(1120px, 100%);
+  max-height: calc(100vh - 48px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e6eaf0;
+  border-radius: 18px;
+  box-shadow: 0 28px 80px rgb(15 23 42 / 24%);
+}
+
+.student-card-print-modal__header,
+.student-card-print-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  background: #fff;
+}
+
+.student-card-print-modal__header {
+  border-bottom: 1px solid #edf0f4;
+}
+
+.student-card-print-modal__header h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.student-card-print-modal__header p {
+  margin: 5px 0 0;
+  color: #717784;
+  font-size: 13px;
+}
+
+.student-card-print-modal__close {
+  width: 38px;
+  height: 38px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  background: #fff;
+  color: #344054;
+  font: inherit;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.student-card-print-modal__close:hover {
+  background: #f7f9fc;
+}
+
+.student-card-print-modal__body {
+  min-height: 520px;
+  overflow: hidden;
+  padding: 18px;
+  background: #f5f7fa;
+}
+
+.student-card-print-modal__pdf {
+  width: 100%;
+  height: min(68vh, 720px);
+  min-height: 500px;
+  display: block;
+  border: 1px solid #dde3eb;
+  border-radius: 12px;
+  background: #e9edf2;
+}
+
+.student-card-print-modal__state {
+  height: 100%;
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  color: #717784;
+}
+
+.student-card-print-modal__state strong {
+  color: #172033;
+  font-size: 16px;
+}
+
+.student-card-print-modal__state--error strong {
+  color: #b42318;
+}
+
+.student-card-print-modal__spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid #dce8fb;
+  border-top-color: #2f76e9;
+  border-radius: 50%;
+  animation: student-card-spin .8s linear infinite;
+}
+
+.student-card-print-modal__footer {
+  border-top: 1px solid #edf0f4;
+}
+
+.student-card-print-modal__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.student-card-print-modal__footer .btn {
+  min-width: 112px;
+}
+
+.student-card-print-capture {
+  position: fixed;
+  inset-inline-start: -10000px;
+  top: 0;
+  width: 100mm;
+  pointer-events: none;
+  opacity: 1;
+}
+
+.student-card-print-capture__card,
+.student-id-card {
+  width: 100mm;
+  height: 40mm;
+}
+
+.student-card-print-capture__card {
+  overflow: hidden;
+}
+
+.student-id-card {
+  --card-primary: #0b2c5c;
+  --card-white: #fff;
+  --card-gray: #717784;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  background:
+    radial-gradient(ellipse 55% 42% at 5% 96%, rgb(0 91 255 / 70%) 0%, rgb(0 91 255 / 22%) 38%, transparent 72%),
+    radial-gradient(ellipse 40% 30% at 98% 5%, rgb(31 104 255 / 36%) 0%, transparent 72%),
+    linear-gradient(145deg, #0b2c5c 0%, #08254f 55%, #051c3f 100%);
+  color: var(--card-white);
+  font-family: 'Alexandria', 'Noto Sans Arabic', Arial, sans-serif;
+}
+
+.student-id-card__glow {
+  position: absolute;
+  inset: -60% -10% -75% -10%;
+  background:
+    radial-gradient(circle at 8% 74%, rgb(0 95 255 / 50%), transparent 34%),
+    radial-gradient(circle at 93% 19%, rgb(26 86 214 / 24%), transparent 31%);
+  opacity: .85;
+}
+
+.student-id-card__front-outline {
+  position: absolute;
+  left: 11mm;
+  top: 8mm;
+  width: 80mm;
+  height: 50mm;
+  box-sizing: border-box;
+  border: .347mm solid rgb(255 255 255 / 40%);
+  border-radius: 10.417mm;
+}
+
+.student-id-card__front-copy {
+  position: absolute;
+  top: 16.4mm;
+  left: 20mm;
+  width: 60mm;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.2mm;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.student-id-card__front-copy strong {
+  font-size: 4mm;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.student-id-card__front-copy span {
+  font-size: 3mm;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.student-id-card__glow--back {
+  inset: -55% -12% -70% -12%;
+}
+
+.student-id-card__decor {
+  position: absolute;
+  width: 50mm;
+  height: 50mm;
+  box-sizing: border-box;
+  border: .347mm solid rgb(255 255 255 / 12%);
+  border-radius: 10.417mm;
+  transform: rotate(24deg);
+}
+
+.student-id-card__decor--top {
+  left: 70mm;
+  top: -22mm;
+}
+
+.student-id-card__decor--bottom {
+  left: -20mm;
+  top: 18mm;
+  border-color: rgb(255 255 255 / 14%);
+}
+
+.student-id-card__student-copy {
+  position: absolute;
+  left: 46mm;
+  top: 50%;
+  width: 50mm;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2mm;
+  text-align: right;
+  line-height: 1;
+}
+
+.student-id-card__student-copy strong {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 4mm;
+  font-weight: 400;
+}
+
+.student-id-card__student-copy span {
+  font-size: 3mm;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.student-id-card__qr-panel {
+  position: absolute;
+  left: 7mm;
+  bottom: 0;
+  width: 27mm;
+  height: 34mm;
+  overflow: hidden;
+  box-sizing: border-box;
+  border-radius: 3.034mm 3.034mm 0 0;
+  background: #fff;
+  color: var(--card-primary);
+}
+
+.student-id-card__qr-frame {
+  position: absolute;
+  top: 3mm;
+  left: 2mm;
+  width: 23mm;
+  height: 24mm;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 1mm;
+  border: .35mm solid var(--card-primary);
+  border-radius: 3mm;
+  background: #fff;
+}
+
+.student-id-card__qr-frame::before,
+.student-id-card__qr-frame::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  background: #fff;
+  pointer-events: none;
+}
+
+.student-id-card__qr-frame::before {
+  left: 4mm;
+  right: 4mm;
+  top: -.6mm;
+  height: 1.2mm;
+}
+
+.student-id-card__qr-frame::after {
+  top: 5mm;
+  bottom: 5mm;
+  left: -.6mm;
+  width: 1.2mm;
+  box-shadow: 23mm 0 0 #fff;
+}
+
+.student-id-card__qr-frame img {
+  width: 21.6mm;
+  height: 21.6mm;
+  display: block;
+  object-fit: contain;
+  image-rendering: auto;
+}
+
+.student-id-card__qr-scan,
+.student-id-card__qr-footer {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 25mm;
+  text-align: center;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.student-id-card__qr-scan {
+  top: 28mm;
+  color: var(--card-primary);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 2.5mm;
+  font-weight: 600;
+}
+
+.student-id-card__qr-footer {
+  top: 31.2mm;
+  color: var(--card-gray);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 1.2mm;
+  font-weight: 400;
+}
+
+@keyframes student-card-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 720px) {
+  .student-card-print-modal {
+    padding: 10px;
+  }
+
+  .student-card-print-modal__dialog {
+    max-height: calc(100vh - 20px);
+    border-radius: 14px;
+  }
+
+  .student-card-print-modal__header,
+  .student-card-print-modal__footer {
+    padding: 14px;
+  }
+
+  .student-card-print-modal__header h2 {
+    font-size: 17px;
+  }
+
+  .student-card-print-modal__body {
+    min-height: 420px;
+    padding: 10px;
+  }
+
+  .student-card-print-modal__pdf,
+  .student-card-print-modal__state {
+    min-height: 400px;
+  }
+
+  .student-card-print-modal__footer {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .student-card-print-modal__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .student-card-print-modal__cancel,
+  .student-card-print-modal__footer .btn {
+    width: 100%;
+  }
+}
+
+@media print {
+  .student-card-print-modal {
+    display: none !important;
+  }
+}

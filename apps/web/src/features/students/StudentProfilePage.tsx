@@ -15,6 +15,10 @@ import type { ApiResponse, StudentProfile } from '../../types/api';
 import { useAuth } from '../auth/AuthContext';
 import { WhatsAppDialog } from '../whatsapp/WhatsAppDialog';
 import { StudentFormDialog } from './StudentFormDialog';
+import {
+  StudentCardPrintModal,
+  type StudentCardQrSource,
+} from './student-card-print';
 
 type StudentQr = {
   studentId: string;
@@ -23,6 +27,10 @@ type StudentQr = {
   value: string;
   svg: string;
 };
+
+async function loadStudentQr(studentId: string): Promise<StudentQr> {
+  return (await api.get<ApiResponse<StudentQr>>(`/students/${studentId}/qr`)).data.data;
+}
 
 const attendanceStatusMeta = {
   PRESENT: { label: 'حضر', tone: 'success' as const },
@@ -128,7 +136,7 @@ function StudentQrDialog({ studentId, studentName, open, onClose }: { studentId:
   const dialogRef = useRef<HTMLDialogElement>(null);
   const qrQuery = useQuery({
     queryKey: ['student', studentId, 'qr'],
-    queryFn: async () => (await api.get<ApiResponse<StudentQr>>(`/students/${studentId}/qr`)).data.data,
+    queryFn: () => loadStudentQr(studentId),
     enabled: open,
   });
 
@@ -163,6 +171,7 @@ function StudentQrDialog({ studentId, studentName, open, onClose }: { studentId:
 export function StudentProfilePage() {
   const { studentId = '' } = useParams();
   const { user } = useAuth();
+  const [isCardPrintOpen, setIsCardPrintOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [whatsAppOpen, setWhatsAppOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -176,12 +185,16 @@ export function StudentProfilePage() {
   if (query.isError) return <ErrorState message={getApiErrorMessage(query.error)} onRetry={() => void query.refetch()} />;
   if (!query.data) return null;
   const student = query.data;
+  const loadStudentCardQr = async (): Promise<StudentCardQrSource> => {
+    const qr = await loadStudentQr(studentId);
+    return { kind: 'svg', value: qr.svg };
+  };
 
   return (
     <>
       <div className="page-header">
         <div className="d-flex align-items-center gap-2"><Link to="/students" className="btn p-2"><ArrowRight size={20} /></Link><div><h1 className="page-title">ملف الطالب</h1><p className="page-subtitle">البيانات الأكاديمية والحضور والدرجات والتواصل.</p></div></div>
-        <div className="d-flex gap-2 flex-wrap"><Button variant="ghost"><Printer size={18} /> طباعة الكارت</Button>{can(user, 'whatsapp.open_message') ? <Button variant="secondary" onClick={() => setWhatsAppOpen(true)}><MessageCircle size={18} /> رسالة واتساب</Button> : null}{can(user, 'students.update') ? <Button onClick={() => setEditOpen(true)}><Edit3 size={18} /> تعديل البيانات</Button> : null}</div>
+        <div className="d-flex gap-2 flex-wrap"><Button type="button" variant="ghost" onClick={() => setIsCardPrintOpen(true)}><Printer size={18} /> طباعة الكارت</Button>{can(user, 'whatsapp.open_message') ? <Button variant="secondary" onClick={() => setWhatsAppOpen(true)}><MessageCircle size={18} /> رسالة واتساب</Button> : null}{can(user, 'students.update') ? <Button onClick={() => setEditOpen(true)}><Edit3 size={18} /> تعديل البيانات</Button> : null}</div>
       </div>
 
       <Card className="student-profile-hero mb-3">
@@ -228,6 +241,12 @@ export function StudentProfilePage() {
       <StudentQrDialog studentId={studentId} studentName={student.fullName} open={qrOpen} onClose={() => setQrOpen(false)} />
       <WhatsAppDialog student={student} open={whatsAppOpen} onClose={() => setWhatsAppOpen(false)} />
       <StudentFormDialog open={editOpen} studentId={studentId} onClose={() => setEditOpen(false)} />
+      <StudentCardPrintModal
+        open={isCardPrintOpen}
+        onClose={() => setIsCardPrintOpen(false)}
+        identity={{ name: student.fullName, code: student.studentCode }}
+        loadQr={loadStudentCardQr}
+      />
     </>
   );
 }

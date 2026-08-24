@@ -47,6 +47,7 @@ const notificationLabels: Record<string, string> = {
   EXPORT_CREATED: 'تم إنشاء ملف تصدير',
 };
 
+
 const primaryNav = [
   { to: '/', label: 'الرئيسية', icon: LayoutDashboard },
   { to: '/students', label: 'الطلاب', icon: GraduationCap },
