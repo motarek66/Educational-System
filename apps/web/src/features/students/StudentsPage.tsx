@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Download, Edit3, Eye, Plus, Upload } from 'lucide-react';
+import { Download, Edit3, Eye, Loader2, Plus, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
@@ -14,6 +14,8 @@ import { can } from '../../lib/permissions/can';
 import type { ApiResponse, StudentListItem } from '../../types/api';
 import { useAuth } from '../auth/AuthContext';
 import { StudentFormDialog } from './StudentFormDialog';
+import { StudentImportDialog } from './StudentImportDialog';
+import { useStudentsExport } from './useStudentsExport';
 
 type PaginatedStudents = ApiResponse<StudentListItem[]>;
 
@@ -25,6 +27,7 @@ export function StudentsPage() {
   const [sort, setSort] = useState('newest');
   const [page, setPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
 
   const academicYearsQuery = useQuery({
@@ -38,6 +41,12 @@ export function StudentsPage() {
     placeholderData: (previous) => previous,
   });
 
+  const { exportStudents, isExporting, error: exportError } = useStudentsExport({
+    search,
+    status,
+    academicYearId,
+  });
+
   const students = query.data?.data ?? [];
   const meta = query.data?.meta;
 
@@ -46,8 +55,45 @@ export function StudentsPage() {
       <PageHeader
         title="الطلاب"
         subtitle="إدارة بيانات الطلاب والأكواد وأولياء الأمور والملفات التعليمية."
-        actions={<><Button variant="ghost"><Download size={18} /> تصدير</Button><Button variant="secondary"><Upload size={18} /> استيراد Excel</Button><Button onClick={() => setAddOpen(true)}><Plus size={18} /> إضافة طالب</Button></>}
+        actions={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => void exportStudents()}
+              disabled={isExporting}
+              title="تصدير الطلاب كملف Excel"
+            >
+              {isExporting ? (
+                <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+              ) : (
+                <Download size={18} />
+              )}
+              تصدير
+            </Button>
+
+            {can(user, 'students.create') && (
+              <Button
+                variant="secondary"
+                onClick={() => setImportOpen(true)}
+                title="استيراد طلاب من ملف Excel"
+              >
+                <Upload size={18} />
+                استيراد Excel
+              </Button>
+            )}
+
+            {can(user, 'students.create') && (
+              <Button onClick={() => setAddOpen(true)}>
+                <Plus size={18} /> إضافة طالب
+              </Button>
+            )}
+          </>
+        }
       />
+
+      {exportError && (
+        <div className="alert alert-danger border-0 mb-3 small">{exportError}</div>
+      )}
 
       <Card className="toolbar mb-3">
         <SearchField value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="ابحث بالاسم أو الكود أو الهاتف..." />
@@ -90,6 +136,18 @@ export function StudentsPage() {
 
       <StudentFormDialog open={addOpen} onClose={() => setAddOpen(false)} />
       <StudentFormDialog open={Boolean(editingStudentId)} studentId={editingStudentId} onClose={() => setEditingStudentId(null)} />
+
+      {/* Import dialog — centerId required by API; use empty string as fallback so UI works even when no center filter selected */}
+      <StudentImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        centerId={academicYearId}
+        {...(academicYearsQuery.data?.find((y) => y.id === academicYearId)?.name
+          ? { centerName: academicYearsQuery.data?.find((y) => y.id === academicYearId)?.name as string }
+          : {})}
+      />
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </>
   );
 }
