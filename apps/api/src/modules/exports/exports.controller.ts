@@ -25,6 +25,10 @@ export class ExportsController {
   @RequirePermissions('reports.export')
   grades(@CurrentUser() user: RequestUser) { return this.exportsService.createExcel(user, 'grades'); }
 
+  @Post('centers')
+  @RequirePermissions('reports.export')
+  centers(@CurrentUser() user: RequestUser) { return this.exportsService.createExcel(user, 'centers'); }
+
   @Post('full-snapshot')
   @RequirePermissions('reports.export')
   fullSnapshot(@CurrentUser() user: RequestUser) { return this.exportsService.createFullSnapshot(user); }
@@ -32,8 +36,9 @@ export class ExportsController {
   @Get(':id/download')
   @Header('Cache-Control', 'private, no-store')
   async download(@CurrentUser() user: RequestUser, @Param('id') id: string, @Res({ passthrough: true }) response: Response) {
-    const { stream, fileName } = await this.exportsService.download(user, id);
+    const { stream, fileName, contentType } = await this.exportsService.download(user, id);
     response.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    response.setHeader('Content-Type', contentType);
     return stream;
   }
 }

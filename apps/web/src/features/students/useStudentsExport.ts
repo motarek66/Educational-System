@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../../lib/api/client';
+import type { ApiResponse } from '../../types/api';
 
 /**
  * Triggers the server-side export:
@@ -15,8 +16,8 @@ export function useStudentsExport() {
     setError(null);
     try {
       // Step 1: kick off the export job
-      const jobResponse = await api.post<{ id: string; status: string }>('/exports/students');
-      const jobId = jobResponse.data.id;
+      const jobResponse = await api.post<ApiResponse<{ id: string; status: string }>>('/exports/students');
+      const jobId = jobResponse.data.data.id;
 
       // Step 2: download the generated file as a blob
       const fileResponse = await api.get(`/exports/${jobId}/download`, {
