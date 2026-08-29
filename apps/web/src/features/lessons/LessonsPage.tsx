@@ -19,22 +19,19 @@ function toLocalDateKey(value: string): string {
 export function LessonsPage() {
   const [status, setStatus] = useState('ALL');
   const [sort, setSort] = useState('NEWEST');
-  const [search, setSearch] = useState('');
   const [date, setDate] = useState('');
   const query = useQuery({ queryKey: ['lessons'], queryFn: async () => (await api.get<ApiResponse<LessonListItem[]>>('/lessons')).data.data });
   const lessons = useMemo(() => (query.data ?? [])
     .filter((lesson) => status === 'ALL' || lesson.status === status)
-    .filter((lesson) => !search.trim() || (lesson.title ?? '').toLowerCase().includes(search.trim().toLowerCase()))
     .filter((lesson) => !date || toLocalDateKey(lesson.startsAt) === date)
-    .sort((a, b) => sort === 'OLDEST' ? +new Date(a.startsAt) - +new Date(b.startsAt) : +new Date(b.startsAt) - +new Date(a.startsAt)), [query.data, sort, status, search, date]);
+    .sort((a, b) => sort === 'OLDEST' ? +new Date(a.startsAt) - +new Date(b.startsAt) : +new Date(b.startsAt) - +new Date(a.startsAt)), [query.data, sort, status, date]);
 
   return <>
     <PageHeader title="الحصص" subtitle="سجل كامل لكل حصة، وقت بدايتها ونهايتها، والطلاب الذين حضروا ودرجاتهم." />
     <Card className="panel mb-3"><div className="row g-2">
-      <div className="col-md-3"><label className="form-label">اسم الحصة</label><input className="form-control" placeholder="ابحث بالاسم..." value={search} onChange={(event) => setSearch(event.target.value)} /></div>
-      <div className="col-md-3"><label className="form-label">تاريخ الحصة</label><input className="form-control" type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
-      <div className="col-md-3"><label className="form-label">الحالة</label><select className="form-select" value={status} onChange={(event) => setStatus(event.target.value)}><option value="ALL">كل الحالات</option><option value="OPEN">جارية</option><option value="CLOSED">منتهية</option></select></div>
-      <div className="col-md-3"><label className="form-label">الترتيب</label><select className="form-select" value={sort} onChange={(event) => setSort(event.target.value)}><option value="NEWEST">الأحدث أولًا</option><option value="OLDEST">الأقدم أولًا</option></select></div>
+      <div className="col-md-4"><label className="form-label">تاريخ الحصة</label><input className="form-control" type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
+      <div className="col-md-4"><label className="form-label">الحالة</label><select className="form-select" value={status} onChange={(event) => setStatus(event.target.value)}><option value="ALL">كل الحالات</option><option value="OPEN">جارية</option><option value="CLOSED">منتهية</option></select></div>
+      <div className="col-md-4"><label className="form-label">الترتيب</label><select className="form-select" value={sort} onChange={(event) => setSort(event.target.value)}><option value="NEWEST">الأحدث أولًا</option><option value="OLDEST">الأقدم أولًا</option></select></div>
     </div></Card>
     {query.isError ? <ErrorState message={getApiErrorMessage(query.error)} onRetry={() => void query.refetch()} /> : null}
     {query.isLoading ? <Card className="skeleton" style={{ height: 360 }} /> : null}
