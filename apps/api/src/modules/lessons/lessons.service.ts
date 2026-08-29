@@ -174,54 +174,106 @@ export class LessonsService {
   }
 
   async saveGrade(user: RequestUser, lessonId: string, enrollmentId: string, score: number) {
+    const [result] = await this.saveGradesBulk(user, lessonId, [{ enrollmentId, score }]);
+    return result;
+  }
+
+  async saveGradesBulk(user: RequestUser, lessonId: string, items: Array<{ enrollmentId: string; score: number }>) {
     const lesson = await this.prisma.lesson.findFirst({
       where: { id: lessonId, ...this.lessonScope(user) },
-      include: { assessment: true, attendance: { where: { enrollmentId }, take: 1 }, scopes: true },
+      include: {
+        assessment: true,
+        attendance: { where: { enrollmentId: { in: items.map((item) => item.enrollmentId) } } },
+      },
     });
     if (!lesson) throw new DomainError('RESOURCE_NOT_FOUND', 'الحصة غير موجودة.', HttpStatus.NOT_FOUND);
     if (!lesson.assessment) throw new DomainError('RESOURCE_NOT_FOUND', 'تقييم الحصة غير موجود.', HttpStatus.NOT_FOUND);
-    if (lesson.attendance.length === 0) throw new DomainError('RESOURCE_OUT_OF_SCOPE', 'الطالب لم يسجل حضورًا في هذه الحصة.', HttpStatus.CONFLICT);
+    const attendedEnrollmentIds = new Set(lesson.attendance.map((attendance) => attendance.enrollmentId));
     const maxScore = Number(lesson.assessment.maxScore);
-    if (!Number.isFinite(score) || score < 0 || score > maxScore) {
-      throw new DomainError('GRADE_OUT_OF_RANGE', `الدرجة يجب أن تكون بين 0 و${maxScore}.`, HttpStatus.UNPROCESSABLE_ENTITY);
+
+    for (const item of items) {
+      if (!attendedEnrollmentIds.has(item.enrollmentId)) {
+        throw new DomainError('RESOURCE_OUT_OF_SCOPE', 'الطالب لم يسجل حضورًا في هذه الحصة.', HttpStatus.CONFLICT);
+      }
+      if (!Number.isFinite(item.score) || item.score < 0 || item.score > maxScore) {
+        throw new DomainError('GRADE_OUT_OF_RANGE', `الدرجة يجب أن تكون بين 0 و${maxScore}.`, HttpStatus.UNPROCESSABLE_ENTITY);
+      }
     }
-    const enrollment = await this.prisma.enrollment.findUnique({ where: { id: enrollmentId }, include: { profile: true } });
-    if (!enrollment) throw new DomainError('RESOURCE_NOT_FOUND', 'قيد الطالب غير موجود.', HttpStatus.NOT_FOUND);
-    const percentage = new Prisma.Decimal((score / maxScore) * 100);
+
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: { id: { in: items.map((item) => item.enrollmentId) } },
+      include: { profile: true },
+    });
+    const enrollmentMap = new Map(enrollments.map((enrollment) => [enrollment.id, enrollment]));
 
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.grade.findUnique({ where: { examId_enrollmentId: { examId: lesson.assessment!.id, enrollmentId } } });
-      const grade = existing
-        ? await tx.grade.update({
-            where: { id: existing.id },
-            data: { score, percentage, status: GradeStatus.GRADED, enteredById: user.id },
-          })
-        : await tx.grade.create({
+      const results = [];
+      for (const item of items) {
+        const enrollment = enrollmentMap.get(item.enrollmentId);
+        if (!enrollment) throw new DomainError('RESOURCE_NOT_FOUND', 'قيد الطالب غير موجود.', HttpStatus.NOT_FOUND);
+        const percentage = new Prisma.Decimal((item.score / maxScore) * 100);
+        const existing = await tx.grade.findUnique({ where: { examId_enrollmentId: { examId: lesson.assessment!.id, enrollmentId: item.enrollmentId } } });
+        const grade = existing
+          ? await tx.grade.update({
+              where: { id: existing.id },
+              data: { score: item.score, percentage, status: GradeStatus.GRADED, enteredById: user.id },
+            })
+          : await tx.grade.create({
+              data: {
+                organizationId: user.organizationId,
+                examId: lesson.assessment!.id,
+                enrollmentId: item.enrollmentId,
+                studentId: enrollment.profile.studentId,
+                score: item.score,
+                percentage,
+                status: GradeStatus.GRADED,
+                enteredById: user.id,
+              },
+            });
+        if (existing && (Number(existing.score) !== item.score || existing.status !== GradeStatus.GRADED)) {
+          await tx.gradeChangeHistory.create({
             data: {
-              organizationId: user.organizationId,
-              examId: lesson.assessment!.id,
-              enrollmentId,
-              studentId: enrollment.profile.studentId,
-              score,
-              percentage,
-              status: GradeStatus.GRADED,
-              enteredById: user.id,
+              gradeId: grade.id,
+              oldScore: existing.score,
+              newScore: item.score,
+              oldStatus: existing.status,
+              newStatus: GradeStatus.GRADED,
+              reason: 'تعديل درجة الحصة',
+              changedById: user.id,
             },
           });
-      if (existing && (Number(existing.score) !== score || existing.status !== GradeStatus.GRADED)) {
-        await tx.gradeChangeHistory.create({
-          data: {
-            gradeId: grade.id,
-            oldScore: existing.score,
-            newScore: score,
-            oldStatus: existing.status,
-            newStatus: GradeStatus.GRADED,
-            reason: 'تعديل درجة الحصة',
-            changedById: user.id,
-          },
+        }
+        results.push({ id: grade.id, enrollmentId: item.enrollmentId, score: Number(grade.score), updatedAt: grade.updatedAt.toISOString() });
+      }
+      return results;
+    });
+  }
+
+  async updateAssessmentMaxScore(user: RequestUser, lessonId: string, maxScore: number) {
+    const lesson = await this.prisma.lesson.findFirst({
+      where: { id: lessonId, ...this.lessonScope(user) },
+      include: { assessment: { include: { grades: true } } },
+    });
+    if (!lesson) throw new DomainError('RESOURCE_NOT_FOUND', 'الحصة غير موجودة.', HttpStatus.NOT_FOUND);
+    if (!lesson.assessment) throw new DomainError('RESOURCE_NOT_FOUND', 'تقييم الحصة غير موجود.', HttpStatus.NOT_FOUND);
+    if (!Number.isFinite(maxScore) || maxScore <= 0) {
+      throw new DomainError('VALIDATION_FAILED', 'الدرجة النهائية يجب أن تكون أكبر من صفر.');
+    }
+    const highestExistingScore = Math.max(0, ...lesson.assessment.grades.map((grade) => Number(grade.score ?? 0)));
+    if (highestExistingScore > maxScore) {
+      throw new DomainError('VALIDATION_FAILED', `توجد درجات مُدخلة أعلى من ${maxScore}، عدّل الدرجات أولًا أو اختر درجة نهائية أكبر.`);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.exam.update({ where: { id: lesson.assessment!.id }, data: { maxScore } });
+      for (const grade of lesson.assessment!.grades) {
+        if (grade.score === null) continue;
+        await tx.grade.update({
+          where: { id: grade.id },
+          data: { percentage: new Prisma.Decimal((Number(grade.score) / maxScore) * 100) },
         });
       }
-      return { id: grade.id, score: Number(grade.score), updatedAt: grade.updatedAt.toISOString() };
+      return { id: lesson.assessment!.id, maxScore };
     });
   }
 

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsDateString, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { ArrayMinSize, IsDateString, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
 
 export class CreateLessonDto {
   @IsString()
@@ -26,4 +26,28 @@ export class SaveLessonGradeDto {
   @IsNumber()
   @Min(0)
   score!: number;
+}
+
+export class UpdateAssessmentMaxScoreDto {
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  maxScore!: number;
+}
+
+export class LessonGradeItemDto {
+  @IsString()
+  enrollmentId!: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  score!: number;
+}
+
+export class SaveLessonGradesBulkDto {
+  @ValidateNested({ each: true })
+  @Type(() => LessonGradeItemDto)
+  @ArrayMinSize(1)
+  items!: LessonGradeItemDto[];
 }

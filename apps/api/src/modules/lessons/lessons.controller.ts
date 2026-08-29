@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import type { RequestUser } from '../../common/guards/auth.guard';
-import { CreateLessonDto, SaveLessonGradeDto } from './lessons.dto';
+import { CreateLessonDto, SaveLessonGradeDto, SaveLessonGradesBulkDto, UpdateAssessmentMaxScoreDto } from './lessons.dto';
 import { LessonsService } from './lessons.service';
 
 @Controller('lessons')
@@ -45,5 +45,17 @@ export class LessonsController {
   @RequirePermissions('grades.enter')
   saveGrade(@CurrentUser() user: RequestUser, @Param('id') id: string, @Param('enrollmentId') enrollmentId: string, @Body() dto: SaveLessonGradeDto) {
     return this.lessons.saveGrade(user, id, enrollmentId, dto.score);
+  }
+
+  @Put(':id/grades')
+  @RequirePermissions('grades.enter')
+  saveGradesBulk(@CurrentUser() user: RequestUser, @Param('id') id: string, @Body() dto: SaveLessonGradesBulkDto) {
+    return this.lessons.saveGradesBulk(user, id, dto.items);
+  }
+
+  @Put(':id/assessment')
+  @RequirePermissions('grades.enter')
+  updateAssessment(@CurrentUser() user: RequestUser, @Param('id') id: string, @Body() dto: UpdateAssessmentMaxScoreDto) {
+    return this.lessons.updateAssessmentMaxScore(user, id, dto.maxScore);
   }
 }
