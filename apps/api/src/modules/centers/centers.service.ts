@@ -75,4 +75,27 @@ export class CentersService {
   create(user: RequestUser, dto: CreateCenterDto) {
     return this.prisma.center.create({ data: { organizationId: user.organizationId, ...dto } });
   }
+
+  async remove(user: RequestUser, centerId: string) {
+    const center = await this.prisma.center.findFirst({ where: { id: centerId, organizationId: user.organizationId } });
+    if (!center) throw new DomainError('RESOURCE_NOT_FOUND', 'السنتر غير موجود.', HttpStatus.NOT_FOUND);
+
+    const [enrollments, attendance, weeklyAttendance, exams] = await Promise.all([
+      this.prisma.enrollment.count({ where: { centerId } }),
+      this.prisma.attendanceRecord.count({ where: { originalCenterId: centerId } }),
+      this.prisma.weeklyAttendanceResult.count({ where: { centerId } }),
+      this.prisma.examCenterAssignment.count({ where: { centerId } }),
+    ]);
+    if (enrollments > 0 || attendance > 0 || weeklyAttendance > 0 || exams > 0) {
+      throw new DomainError('RESOURCE_HAS_DEPENDENTS', 'لا يمكن حذف السنتر لوجود طلاب أو بيانات حضور/امتحانات مرتبطة به. أرشفه بدلًا من ذلك.', HttpStatus.CONFLICT);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.center.delete({ where: { id: centerId } });
+      await tx.auditLog.create({
+        data: { organizationId: user.organizationId, actorUserId: user.id, action: 'CENTER_DELETED', entityType: 'Center', entityId: centerId, beforeJson: { name: center.name, code: center.code } },
+      });
+    });
+    return { id: centerId };
+  }
 }

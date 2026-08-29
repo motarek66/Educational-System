@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -66,5 +66,11 @@ export class StudentsController {
   @RequirePermissions('students.update')
   transfer(@CurrentUser() user: RequestUser, @Param('id') id: string, @Body() dto: TransferStudentDto) {
     return this.students.transfer(user, id, dto);
+  }
+
+  @Delete(':id')
+  @RequirePermissions('students.delete')
+  remove(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.students.remove(user, id);
   }
 }

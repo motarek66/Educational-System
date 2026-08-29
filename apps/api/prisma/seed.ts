@@ -6,13 +6,13 @@ const prisma = new PrismaClient();
 
 const permissions = [
   'users.view', 'users.create', 'users.update',
-  'students.view', 'students.create', 'students.update', 'students.archive', 'students.export',
+  'students.view', 'students.create', 'students.update', 'students.archive', 'students.export', 'students.delete',
   'attendance.view', 'attendance.scan', 'attendance.create_manual', 'attendance.correct', 'attendance.guest',
   'lessons.create',
   'exams.view', 'exams.create',
   'grades.enter', 'grades.edit_draft', 'grades.edit_published',
   'whatsapp.open_message', 'whatsapp.manage_templates',
-  'centers.view', 'centers.create',
+  'centers.view', 'centers.create', 'centers.delete',
   'dashboard.view', 'reports.export',
 ] as const;
 

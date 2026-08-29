@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import type { RequestUser } from '../../common/guards/auth.guard';
@@ -24,4 +24,8 @@ export class CentersController {
   @Post()
   @RequirePermissions('centers.create')
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateCenterDto) { return this.centers.create(user, dto); }
+
+  @Delete(':id')
+  @RequirePermissions('centers.delete')
+  remove(@CurrentUser() user: RequestUser, @Param('id') id: string) { return this.centers.remove(user, id); }
 }

@@ -569,6 +569,26 @@ export class StudentsService {
     });
   }
 
+  async remove(user: RequestUser, studentId: string) {
+    const profile = await this.getScopedProfile(user, studentId);
+    const student = await this.prisma.student.findFirst({ where: { id: studentId, organizationId: user.organizationId } });
+    if (!student) throw new DomainError('RESOURCE_NOT_FOUND', 'الطالب غير موجود.', HttpStatus.NOT_FOUND);
+
+    await this.prisma.$transaction(async (tx) => {
+      const profileIds = (await tx.studentAcademicProfile.findMany({ where: { studentId }, select: { id: true } })).map(({ id }) => id);
+      await tx.grade.deleteMany({ where: { studentId } });
+      await tx.attendanceRecord.deleteMany({ where: { studentId } });
+      await tx.weeklyAttendanceResult.deleteMany({ where: { studentId } });
+      await tx.enrollment.deleteMany({ where: { studentAcademicProfileId: { in: profileIds } } });
+      await tx.studentAcademicProfile.deleteMany({ where: { studentId } });
+      await tx.student.delete({ where: { id: studentId } });
+      await tx.auditLog.create({
+        data: { organizationId: user.organizationId, actorUserId: user.id, action: 'STUDENT_DELETED', entityType: 'Student', entityId: studentId, beforeJson: { fullName: student.fullName, studentCode: profile.studentCode } },
+      });
+    });
+    return { id: studentId };
+  }
+
   async transfer(user: RequestUser, studentId: string, input: { centerId: string; reason: string }) {
     const profile = await this.getScopedProfile(user, studentId);
     const targetCenter = await this.prisma.center.findFirst({

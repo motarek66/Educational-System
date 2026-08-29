@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { Download, Edit3, Eye, Loader2, Plus, Upload } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Download, Edit3, Eye, Loader2, Plus, Trash2, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
@@ -21,6 +21,7 @@ type PaginatedStudents = ApiResponse<StudentListItem[]>;
 
 export function StudentsPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [academicYearId, setAcademicYearId] = useState('');
@@ -29,6 +30,19 @@ export function StudentsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: (studentId: string) => api.delete(`/students/${studentId}`),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['students'] }),
+    onError: (error) => setDeleteError(getApiErrorMessage(error)),
+  });
+  const handleDelete = (student: { id: string; fullName: string }) => {
+    setDeleteError(null);
+    if (window.confirm(`هل أنت متأكد من حذف الطالب "${student.fullName}" نهائيًا؟ لا يمكن التراجع عن هذا الإجراء.`)) {
+      deleteMutation.mutate(student.id);
+    }
+  };
 
   const academicYearsQuery = useQuery({
     queryKey: ['academic-years'],
@@ -90,6 +104,9 @@ export function StudentsPage() {
       {exportError && (
         <div className="alert alert-danger border-0 mb-3 small">{exportError}</div>
       )}
+      {deleteError && (
+        <div className="alert alert-danger border-0 mb-3 small">{deleteError}</div>
+      )}
 
       <Card className="toolbar mb-3">
         <SearchField value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="ابحث بالاسم أو الكود أو الهاتف..." />
@@ -113,14 +130,14 @@ export function StudentsPage() {
               <thead><tr><th>الطالب</th><th>الكود</th><th>السنتر</th><th>ولي الأمر</th><th>الحالة</th><th aria-label="الإجراءات" /></tr></thead>
               <tbody>{students.map((student) => {
                 const metaStatus = studentStatusMeta[student.status];
-                return <tr key={student.id}><td><div className="d-flex align-items-center gap-3"><div className="sidebar__brand-mark" style={{ width: 38, height: 38 }}>{student.fullName.slice(0, 1)}</div><div><div className="fw-semibold">{student.fullName}</div><div className="text-secondary small">{student.gradeLevel}</div></div></div></td><td><span className="ltr-value d-inline-block fw-medium">{student.studentCode}</span></td><td><div>{student.centerName}</div></td><td><span className="ltr-value d-inline-block">{student.guardianPhone ?? '—'}</span></td><td><StatusBadge {...metaStatus} /></td><td><div className="d-flex gap-1"><Link className="btn p-2" to={`/students/${student.id}`} aria-label={`عرض ${student.fullName}`}><Eye size={18} /></Link>{can(user, 'students.update') ? <button className="btn p-2" onClick={() => setEditingStudentId(student.id)} aria-label={`تعديل ${student.fullName}`}><Edit3 size={18} /></button> : null}</div></td></tr>;
+                return <tr key={student.id}><td><div className="d-flex align-items-center gap-3"><div className="sidebar__brand-mark" style={{ width: 38, height: 38 }}>{student.fullName.slice(0, 1)}</div><div><div className="fw-semibold">{student.fullName}</div><div className="text-secondary small">{student.gradeLevel}</div></div></div></td><td><span className="ltr-value d-inline-block fw-medium">{student.studentCode}</span></td><td><div>{student.centerName}</div></td><td><span className="ltr-value d-inline-block">{student.guardianPhone ?? '—'}</span></td><td><StatusBadge {...metaStatus} /></td><td><div className="d-flex gap-1"><Link className="btn p-2" to={`/students/${student.id}`} aria-label={`عرض ${student.fullName}`}><Eye size={18} /></Link>{can(user, 'students.update') ? <button className="btn p-2" onClick={() => setEditingStudentId(student.id)} aria-label={`تعديل ${student.fullName}`}><Edit3 size={18} /></button> : null}{can(user, 'students.delete') ? <button className="btn p-2 text-danger" disabled={deleteMutation.isPending} onClick={() => handleDelete(student)} aria-label={`حذف ${student.fullName}`}><Trash2 size={18} /></button> : null}</div></td></tr>;
               })}</tbody>
             </table>
           </div>
 
           <div className="data-card-list p-3">{students.map((student) => {
             const metaStatus = studentStatusMeta[student.status];
-            return <div key={student.id} className="rounded-3 p-3" style={{ background: 'var(--surface-subtle)' }}><div className="d-flex align-items-start justify-content-between gap-2"><Link to={`/students/${student.id}`} className="d-flex gap-3 text-body"><div className="sidebar__brand-mark">{student.fullName.slice(0, 1)}</div><div><div className="fw-semibold">{student.fullName}</div><div className="text-secondary small ltr-value">{student.studentCode}</div></div></Link><StatusBadge {...metaStatus} /></div><div className="d-flex justify-content-between align-items-center text-secondary small mt-3"><span>{student.centerName} · {student.gradeLevel}</span>{can(user, 'students.update') ? <button className="btn p-2" onClick={() => setEditingStudentId(student.id)} aria-label={`تعديل ${student.fullName}`}><Edit3 size={17} /></button> : null}</div></div>;
+            return <div key={student.id} className="rounded-3 p-3" style={{ background: 'var(--surface-subtle)' }}><div className="d-flex align-items-start justify-content-between gap-2"><Link to={`/students/${student.id}`} className="d-flex gap-3 text-body"><div className="sidebar__brand-mark">{student.fullName.slice(0, 1)}</div><div><div className="fw-semibold">{student.fullName}</div><div className="text-secondary small ltr-value">{student.studentCode}</div></div></Link><StatusBadge {...metaStatus} /></div><div className="d-flex justify-content-between align-items-center text-secondary small mt-3"><span>{student.centerName} · {student.gradeLevel}</span><div className="d-flex gap-1">{can(user, 'students.update') ? <button className="btn p-2" onClick={() => setEditingStudentId(student.id)} aria-label={`تعديل ${student.fullName}`}><Edit3 size={17} /></button> : null}{can(user, 'students.delete') ? <button className="btn p-2 text-danger" disabled={deleteMutation.isPending} onClick={() => handleDelete(student)} aria-label={`حذف ${student.fullName}`}><Trash2 size={17} /></button> : null}</div></div></div>;
           })}</div>
 
           <div className="d-flex align-items-center justify-content-between gap-3 p-3 border-top">

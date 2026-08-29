@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, MapPin, Plus, Users, X } from 'lucide-react';
+import { Building2, MapPin, Plus, Trash2, Users, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
@@ -10,7 +10,9 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { api, getApiErrorMessage } from '../../lib/api/client';
 import { formatNumber } from '../../lib/formatting';
+import { can } from '../../lib/permissions/can';
 import type { ApiResponse, CenterListItem } from '../../types/api';
+import { useAuth } from '../auth/AuthContext';
 
 type CreateCenterInput = {
   name: string;
@@ -106,19 +108,35 @@ function AddCenterDialog({ open, onClose }: { open: boolean; onClose: () => void
 }
 
 export function CentersPage() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const query = useQuery({
     queryKey: ['centers'],
     queryFn: async () => (await api.get<ApiResponse<CenterListItem[]>>('/centers')).data.data,
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (centerId: string) => api.delete(`/centers/${centerId}`),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['centers'] }),
+    onError: (error) => setDeleteError(getApiErrorMessage(error)),
+  });
+  const handleDelete = (center: { id: string; name: string }) => {
+    setDeleteError(null);
+    if (window.confirm(`هل أنت متأكد من حذف سنتر "${center.name}" نهائيًا؟ لا يمكن التراجع عن هذا الإجراء.`)) {
+      deleteMutation.mutate(center.id);
+    }
+  };
+
   return (
     <>
       <PageHeader title="السناتر" subtitle="نظم أماكن الدراسة واعرض طلاب كل سنتر." actions={<Button onClick={() => setAddOpen(true)}><Plus size={18} /> إضافة سنتر</Button>} />
+      {deleteError ? <div className="alert alert-danger border-0 mb-3 small">{deleteError}</div> : null}
       {query.isError ? <ErrorState message={getApiErrorMessage(query.error)} onRetry={() => void query.refetch()} /> : null}
       {query.isLoading ? <Card className="skeleton" style={{ height: 420 }} /> : null}
       {!query.isLoading && !query.isError && query.data?.length === 0 ? <EmptyState title="لا توجد سناتر" description="أضف أول سنتر ثم سجّل الطلاب داخله." action={<Button onClick={() => setAddOpen(true)}><Plus size={18} /> إضافة سنتر</Button>} /> : null}
-      <div className="row g-3">{query.data?.map((center) => <div className="col-lg-6 col-xl-4" key={center.id}><Card className="panel h-100"><div className="d-flex align-items-start justify-content-between gap-3"><div className="d-flex align-items-center gap-3"><div className="metric-card__icon"><Building2 size={20} /></div><div><h2 className="h5 mb-1">{center.name}</h2><div className="text-secondary small ltr-value">{center.code}</div></div></div><StatusBadge label={center.status === 'ACTIVE' ? 'نشط' : 'غير نشط'} tone={center.status === 'ACTIVE' ? 'success' : 'warning'} /></div><p className="text-secondary small mt-3 mb-0"><MapPin size={15} className="ms-1" />{center.address ?? 'لا يوجد عنوان مسجل'}</p><div className="rounded-3 p-3 mt-3" style={{ background: 'var(--surface-subtle)' }}><Users size={18} color="var(--color-primary-600)" /><div className="text-secondary small mt-2">الطلاب</div><strong>{formatNumber(center.studentsCount)}</strong></div><Link className="app-button app-button--secondary w-100 mt-3" to={`/centers/${center.id}`}>عرض السنتر</Link></Card></div>)}</div>
+      <div className="row g-3">{query.data?.map((center) => <div className="col-lg-6 col-xl-4" key={center.id}><Card className="panel h-100"><div className="d-flex align-items-start justify-content-between gap-3"><div className="d-flex align-items-center gap-3"><div className="metric-card__icon"><Building2 size={20} /></div><div><h2 className="h5 mb-1">{center.name}</h2><div className="text-secondary small ltr-value">{center.code}</div></div></div><div className="d-flex align-items-center gap-2"><StatusBadge label={center.status === 'ACTIVE' ? 'نشط' : 'غير نشط'} tone={center.status === 'ACTIVE' ? 'success' : 'warning'} />{can(user, 'centers.delete') ? <button className="btn p-2 text-danger" disabled={deleteMutation.isPending} onClick={() => handleDelete(center)} aria-label={`حذف ${center.name}`}><Trash2 size={18} /></button> : null}</div></div><p className="text-secondary small mt-3 mb-0"><MapPin size={15} className="ms-1" />{center.address ?? 'لا يوجد عنوان مسجل'}</p><div className="rounded-3 p-3 mt-3" style={{ background: 'var(--surface-subtle)' }}><Users size={18} color="var(--color-primary-600)" /><div className="text-secondary small mt-2">الطلاب</div><strong>{formatNumber(center.studentsCount)}</strong></div><Link className="app-button app-button--secondary w-100 mt-3" to={`/centers/${center.id}`}>عرض السنتر</Link></Card></div>)}</div>
       <AddCenterDialog open={addOpen} onClose={() => setAddOpen(false)} />
     </>
   );
