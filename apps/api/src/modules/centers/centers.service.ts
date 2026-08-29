@@ -80,17 +80,18 @@ export class CentersService {
     const center = await this.prisma.center.findFirst({ where: { id: centerId, organizationId: user.organizationId } });
     if (!center) throw new DomainError('RESOURCE_NOT_FOUND', 'السنتر غير موجود.', HttpStatus.NOT_FOUND);
 
-    const [enrollments, attendance, weeklyAttendance, exams] = await Promise.all([
-      this.prisma.enrollment.count({ where: { centerId } }),
-      this.prisma.attendanceRecord.count({ where: { originalCenterId: centerId } }),
-      this.prisma.weeklyAttendanceResult.count({ where: { centerId } }),
-      this.prisma.examCenterAssignment.count({ where: { centerId } }),
-    ]);
-    if (enrollments > 0 || attendance > 0 || weeklyAttendance > 0 || exams > 0) {
-      throw new DomainError('RESOURCE_HAS_DEPENDENTS', 'لا يمكن حذف السنتر لوجود طلاب أو بيانات حضور/امتحانات مرتبطة به. أرشفه بدلًا من ذلك.', HttpStatus.CONFLICT);
+    const activeEnrollments = await this.prisma.enrollment.count({ where: { centerId, status: 'ACTIVE' } });
+    if (activeEnrollments > 0) {
+      throw new DomainError('RESOURCE_HAS_DEPENDENTS', 'لا يمكن حذف السنتر لوجود طلاب مسجلين فيه حاليًا. انقلهم إلى سنتر آخر أو أرشفهم أولًا.', HttpStatus.CONFLICT);
     }
 
     await this.prisma.$transaction(async (tx) => {
+      await tx.grade.deleteMany({ where: { enrollment: { centerId } } });
+      await tx.attendanceRecord.deleteMany({ where: { OR: [{ enrollment: { centerId } }, { originalCenterId: centerId }] } });
+      await tx.weeklyAttendanceResult.deleteMany({ where: { centerId } });
+      await tx.enrollment.deleteMany({ where: { centerId } });
+      await tx.examCenterAssignment.deleteMany({ where: { centerId } });
+      await tx.lesson.updateMany({ where: { centerId }, data: { centerId: null } });
       await tx.center.delete({ where: { id: centerId } });
       await tx.auditLog.create({
         data: { organizationId: user.organizationId, actorUserId: user.id, action: 'CENTER_DELETED', entityType: 'Center', entityId: centerId, beforeJson: { name: center.name, code: center.code } },
