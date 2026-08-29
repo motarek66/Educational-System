@@ -63,7 +63,7 @@ export function LessonDetailsPage() {
   if (query.isError) return <ErrorState message={getApiErrorMessage(query.error)} onRetry={() => void query.refetch()} />;
   const lesson = query.data; if (!lesson) return null;
   return <>
-    <div className="page-header"><div className="d-flex align-items-center gap-2"><Link to="/lessons" className="btn p-2"><ArrowRight size={20} /></Link><div><div className="d-flex gap-2 align-items-center"><h1 className="page-title">{lesson.title}</h1><StatusBadge {...lessonStatusMeta[lesson.status]} /></div><p className="page-subtitle">{lesson.centers.map((center) => center.name).join('، ')}</p></div></div></div>
+    <div className="page-header"><div className="d-flex align-items-center gap-2"><Link to="/lessons" className="btn p-2"><ArrowRight size={20} /></Link><div><div className="d-flex gap-2 align-items-center"><h1 className="page-title">{lesson.title}</h1><StatusBadge {...lessonStatusMeta[lesson.status]} /></div></div></div></div>
     <div className="metric-grid mb-3"><Card className="metric-card"><div className="metric-card__label">بدأت</div><div className="fw-semibold mt-2">{formatDateTime(lesson.startsAt)}</div></Card><Card className="metric-card"><div className="metric-card__label">انتهت</div><div className="fw-semibold mt-2">{lesson.endsAt ? formatDateTime(lesson.endsAt) : 'ما زالت جارية'}</div></Card><Card className="metric-card"><div className="metric-card__label">الحضور</div><div className="metric-card__value">{formatNumber(lesson.summary.registered)}</div></Card><Card className="metric-card"><div className="metric-card__label">الدرجات المسجلة</div><div className="metric-card__value">{formatNumber(lesson.summary.gradesEntered)}</div></Card></div>
     <Card className="panel">
       <div className="panel__header d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -83,8 +83,18 @@ export function LessonDetailsPage() {
             </tr>)}
           </tbody>
         </table>
-        {lesson.rows.length === 0 ? <div className="text-center text-secondary py-4">لا يوجد حضور مسجل في هذه الحصة.</div> : null}
       </div>
+
+      <div className="data-card-list p-3">{lesson.rows.map((row) => <div key={row.attendanceId} className="rounded-3 p-3" style={{ background: 'var(--surface-subtle)' }}>
+        <div className="d-flex align-items-start justify-content-between gap-2">
+          <Link to={`/students/${row.studentId}`} className="text-body"><div className="fw-semibold">{row.fullName}</div><div className="text-secondary small ltr-value">{row.studentCode}</div></Link>
+          <StatusBadge label={row.attendanceStatus === 'LATE' ? 'متأخر' : 'حاضر'} tone={row.attendanceStatus === 'LATE' ? 'warning' : 'success'} />
+        </div>
+        <div className="text-secondary small mt-2">{row.centerName} · {row.gradeLevel} · {formatDateTime(row.checkInAt)}</div>
+        {lesson.assessment ? <div className="mt-3"><label className="form-label small mb-1">الدرجة (من {formatNumber(lesson.assessment.maxScore)})</label><input className="form-control form-control-sm ltr-value" style={{ width: 100 }} type="number" min={0} max={lesson.assessment.maxScore} step="0.5" value={scores[row.enrollmentId] ?? ''} onChange={(event) => setScores((prev) => ({ ...prev, [row.enrollmentId]: event.target.value }))} /></div> : null}
+      </div>)}</div>
+
+      {lesson.rows.length === 0 ? <div className="text-center text-secondary py-4">لا يوجد حضور مسجل في هذه الحصة.</div> : null}
       {lesson.assessment && lesson.rows.length > 0 ? (
         <div className="d-flex justify-content-between align-items-center gap-2 mt-3">
           {bulkSave.isError ? <span className="text-danger small">{getApiErrorMessage(bulkSave.error)}</span> : <span />}

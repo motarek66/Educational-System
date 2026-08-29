@@ -126,7 +126,18 @@ export function AttendancePage() {
 
       <Card className="panel mt-3">
         <div className="panel__header"><div><h2 className="panel__title">الطلاب الحاضرون ودرجات الحصة</h2><p className="panel__subtitle">القائمة تتحدث تلقائيًا عند التسجيل من أي جهاز.</p></div><Link to={`/lessons/${lesson.id}`} className="app-button app-button--secondary">عرض التفاصيل</Link></div>
-        <div className="table-responsive"><table className="table align-middle"><thead><tr><th>الطالب</th><th>السنتر / المرحلة</th><th>وقت الحضور</th><th>الحالة</th><th>الدرجة</th></tr></thead><tbody>{lesson.rows.map((row) => <tr key={row.attendanceId}><td><Link to={`/students/${row.studentId}`} className="fw-semibold text-decoration-none">{row.fullName}</Link><div className="text-secondary small ltr-value">{row.studentCode}</div></td><td>{row.centerName}<div className="text-secondary small">{row.gradeLevel}</div></td><td>{formatDateTime(row.checkInAt)}</td><td><StatusBadge label={row.attendanceStatus === 'LATE' ? 'متأخر' : 'حاضر'} tone={row.attendanceStatus === 'LATE' ? 'warning' : 'success'} /></td><td>{lesson.assessment ? <GradeInput lessonId={lesson.id} enrollmentId={row.enrollmentId} value={row.score} maxScore={lesson.assessment.maxScore} /> : '—'}</td></tr>)}</tbody></table>{lesson.rows.length === 0 ? <div className="text-center text-secondary py-4">لم يُسجل أي طالب بعد.</div> : null}</div>
+        <div className="table-responsive"><table className="table align-middle"><thead><tr><th>الطالب</th><th>السنتر / المرحلة</th><th>وقت الحضور</th><th>الحالة</th><th>الدرجة</th></tr></thead><tbody>{lesson.rows.map((row) => <tr key={row.attendanceId}><td><Link to={`/students/${row.studentId}`} className="fw-semibold text-decoration-none">{row.fullName}</Link><div className="text-secondary small ltr-value">{row.studentCode}</div></td><td>{row.centerName}<div className="text-secondary small">{row.gradeLevel}</div></td><td>{formatDateTime(row.checkInAt)}</td><td><StatusBadge label={row.attendanceStatus === 'LATE' ? 'متأخر' : 'حاضر'} tone={row.attendanceStatus === 'LATE' ? 'warning' : 'success'} /></td><td>{lesson.assessment ? <GradeInput lessonId={lesson.id} enrollmentId={row.enrollmentId} value={row.score} maxScore={lesson.assessment.maxScore} /> : '—'}</td></tr>)}</tbody></table></div>
+
+        <div className="data-card-list p-3">{lesson.rows.map((row) => <div key={row.attendanceId} className="rounded-3 p-3" style={{ background: 'var(--surface-subtle)' }}>
+          <div className="d-flex align-items-start justify-content-between gap-2">
+            <Link to={`/students/${row.studentId}`} className="text-body"><div className="fw-semibold">{row.fullName}</div><div className="text-secondary small ltr-value">{row.studentCode}</div></Link>
+            <StatusBadge label={row.attendanceStatus === 'LATE' ? 'متأخر' : 'حاضر'} tone={row.attendanceStatus === 'LATE' ? 'warning' : 'success'} />
+          </div>
+          <div className="text-secondary small mt-2">{row.centerName} · {row.gradeLevel} · {formatDateTime(row.checkInAt)}</div>
+          {lesson.assessment ? <div className="mt-3"><GradeInput lessonId={lesson.id} enrollmentId={row.enrollmentId} value={row.score} maxScore={lesson.assessment.maxScore} /></div> : null}
+        </div>)}</div>
+
+        {lesson.rows.length === 0 ? <div className="text-center text-secondary py-4">لم يُسجل أي طالب بعد.</div> : null}
       </Card>
     </> : null}
   </>;
