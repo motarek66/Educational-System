@@ -21,6 +21,7 @@ type PaginatedStudents = ApiResponse<StudentListItem[]>;
 
 export function StudentsPage() {
   const { user } = useAuth();
+  const isSuperAdmin = user?.isSuperAdmin ?? false;
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
@@ -31,6 +32,9 @@ export function StudentsPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // For non-admins: only search after 3+ chars
+  const supervisorSearchReady = !isSuperAdmin && search.trim().length >= 3;
 
   const deleteMutation = useMutation({
     mutationFn: (studentId: string) => api.delete(`/students/${studentId}`),
@@ -53,12 +57,62 @@ export function StudentsPage() {
     queryKey: ['students', { search, status, academicYearId, sort, page }],
     queryFn: async () => (await api.get<PaginatedStudents>('/students', { params: { search: search || undefined, status: status || undefined, academicYearId: academicYearId || undefined, sort, page, limit: 10 } })).data,
     placeholderData: (previous) => previous,
+    enabled: isSuperAdmin || supervisorSearchReady,
   });
 
   const { exportStudents, isExporting, error: exportError } = useStudentsExport();
 
   const students = query.data?.data ?? [];
   const meta = query.data?.meta;
+
+  // Supervisor mode: search-only view
+  if (!isSuperAdmin) {
+    return (
+      <>
+        <PageHeader title="الطلاب" subtitle="ابحث باسم الطالب لعرض ملفه." />
+        {deleteError && <div className="alert alert-danger border-0 mb-3 small">{deleteError}</div>}
+        <Card className="toolbar mb-3">
+          <SearchField value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="ابحث باسم الطالب..." />
+        </Card>
+        {!supervisorSearchReady ? (
+          <Card className="panel text-center py-5 text-secondary">
+            <div style={{ fontSize: 40 }}>🔍</div>
+            <div className="mt-3 fw-semibold">اكتب اسم الطالب للبحث</div>
+            <div className="small mt-1">أدخل 3 أحرف على الأقل لعرض النتائج.</div>
+          </Card>
+        ) : null}
+        {supervisorSearchReady && query.isLoading ? <Card className="skeleton" style={{ height: 200 }} /> : null}
+        {supervisorSearchReady && query.isError ? <ErrorState message={getApiErrorMessage(query.error)} onRetry={() => void query.refetch()} /> : null}
+        {supervisorSearchReady && !query.isLoading && !query.isError && students.length === 0 ? (
+          <div className="text-center text-secondary py-4">لا توجد نتائج لـ «{search}»</div>
+        ) : null}
+        {supervisorSearchReady && students.length > 0 ? (
+          <Card className="overflow-hidden">
+            <div className="table-responsive p-3">
+              <table className="table align-middle">
+                <thead><tr><th>الطالب</th><th>الكود</th><th>السنتر</th><th>الحالة</th><th /></tr></thead>
+                <tbody>{students.map((student) => {
+                  const metaStatus = studentStatusMeta[student.status];
+                  return <tr key={student.id}>
+                    <td><div className="d-flex align-items-center gap-3"><div className="sidebar__brand-mark" style={{ width: 38, height: 38 }}>{student.fullName.slice(0, 1)}</div><div><div className="fw-semibold">{student.fullName}</div><div className="text-secondary small">{student.gradeLevel}</div></div></div></td>
+                    <td><span className="ltr-value d-inline-block fw-medium">{student.studentCode}</span></td>
+                    <td>{student.centerName}</td>
+                    <td><StatusBadge {...metaStatus} /></td>
+                    <td><Link className="btn p-2" to={`/students/${student.id}`}><Eye size={18} /></Link></td>
+                  </tr>;
+                })}</tbody>
+              </table>
+            </div>
+            <div className="data-card-list p-3">{students.map((student) => {
+              const metaStatus = studentStatusMeta[student.status];
+              return <div key={student.id} className="rounded-3 p-3" style={{ background: 'var(--surface-subtle)' }}><div className="d-flex align-items-start justify-content-between gap-2"><Link to={`/students/${student.id}`} className="d-flex gap-3 text-body"><div className="sidebar__brand-mark">{student.fullName.slice(0, 1)}</div><div><div className="fw-semibold">{student.fullName}</div><div className="text-secondary small ltr-value">{student.studentCode}</div></div></Link><StatusBadge {...metaStatus} /></div><div className="text-secondary small mt-2">{student.centerName} · {student.gradeLevel}</div></div>;
+            })}</div>
+          </Card>
+        ) : null}
+        <StudentFormDialog open={Boolean(editingStudentId)} studentId={editingStudentId} onClose={() => setEditingStudentId(null)} />
+      </>
+    );
+  }
 
   return (
     <>

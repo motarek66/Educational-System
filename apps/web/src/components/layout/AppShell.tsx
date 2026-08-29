@@ -59,8 +59,8 @@ const primaryNav = [
 ];
 
 const secondaryNav = [
-  { to: '/supervisors', label: 'المشرفون', icon: Users },
-  { to: '/settings', label: 'الإعدادات', icon: Settings },
+  { to: '/supervisors', label: 'المشرفون', icon: Users, adminOnly: true },
+  { to: '/settings', label: 'الإعدادات', icon: Settings, adminOnly: true },
 ];
 
 const routeTitles: Record<string, string> = {
@@ -184,7 +184,7 @@ export function AppShell() {
         <nav className="sidebar__nav">
           <ul className="sidebar__list">{primaryNav.map((item) => <SideNavLink key={item.to} {...item} />)}</ul>
           <ul className="sidebar__list">
-            {secondaryNav.map((item) => <SideNavLink key={item.to} {...item} />)}
+            {secondaryNav.filter((item) => !item.adminOnly || user?.isSuperAdmin).map((item) => <SideNavLink key={item.to} {...item} />)}
             <li><a className="sidebar__link" href="#help" title="المساعدة"><HelpCircle size={20} /><span>المساعدة</span></a></li>
             <li><button className="sidebar__link border-0 bg-transparent" onClick={() => void logout()} title="تسجيل الخروج"><LogOut size={20} /><span>تسجيل الخروج</span></button></li>
           </ul>
