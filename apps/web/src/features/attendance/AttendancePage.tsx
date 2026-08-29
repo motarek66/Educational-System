@@ -41,18 +41,32 @@ function Scanner({ active, onDetected }: { active: boolean; onDetected: (value: 
   </div>;
 }
 
-function GradeInput({ lessonId, enrollmentId, value, maxScore }: { lessonId: string; enrollmentId: string; value: number | null; maxScore: number }) {
-  const queryClient = useQueryClient();
-  const [score, setScore] = useState(value === null ? '' : String(value));
-  useEffect(() => setScore(value === null ? '' : String(value)), [value]);
+function MaxScoreEditor({ lessonId, assessmentId, maxScore }: { lessonId: string; assessmentId: string; maxScore: number }) {
+  const client = useQueryClient();
+  const [value, setValue] = useState(String(maxScore));
+  useEffect(() => setValue(String(maxScore)), [maxScore, assessmentId]);
   const mutation = useMutation({
-    mutationFn: async () => (await api.put(`/lessons/${lessonId}/grades/${enrollmentId}`, { score: Number(score) })).data,
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['lessons', 'active'] }),
+    mutationFn: () => api.put(`/lessons/${lessonId}/assessment`, { maxScore: Number(value) }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: ['lessons', 'active'] }),
   });
-  return <div className="d-flex gap-1 align-items-center" style={{ minWidth: 125 }}>
-    <input className="form-control form-control-sm ltr-value" type="number" min={0} max={maxScore} step="0.5" value={score} onChange={(event) => setScore(event.target.value)} placeholder={`من ${maxScore}`} />
-    <button className="btn btn-sm btn-outline-primary" type="button" disabled={score === '' || mutation.isPending} onClick={() => mutation.mutate()} aria-label="حفظ الدرجة"><Save size={15} /></button>
-  </div>;
+  return (
+    <div className="d-flex align-items-center gap-2">
+      <label className="small text-secondary mb-0">الامتحان بكام؟</label>
+      <input
+        className="form-control form-control-sm ltr-value"
+        style={{ width: 90 }}
+        type="number"
+        min={1}
+        step="0.5"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+      />
+      <Button variant="secondary" onClick={() => mutation.mutate()} disabled={!value || Number(value) === maxScore || mutation.isPending}>
+        <Save size={15} /> تحديد الدرجة النهائية
+      </Button>
+      {mutation.isError ? <span className="text-danger" style={{ fontSize: 11 }}>{getApiErrorMessage(mutation.error)}</span> : null}
+    </div>
+  );
 }
 
 export function AttendancePage() {
@@ -61,12 +75,26 @@ export function AttendancePage() {
   const [manualCode, setManualCode] = useState('');
   const [lastResult, setLastResult] = useState<AttendanceScanResult | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [scores, setScores] = useState<Record<string, string>>({});
   const lessonQuery = useQuery({
     queryKey: ['lessons', 'active'],
     queryFn: async () => (await api.get<ApiResponse<LessonDetails | null>>('/lessons/active')).data.data,
     refetchInterval: 3_000,
   });
   const lesson = lessonQuery.data;
+
+  useEffect(() => {
+    if (!lesson) return;
+    setScores((prev) => {
+      const next = { ...prev };
+      for (const row of lesson.rows) {
+        if (!(row.enrollmentId in next)) {
+          next[row.enrollmentId] = row.score === null ? '' : String(row.score);
+        }
+      }
+      return next;
+    });
+  }, [lesson]);
 
   const startMutation = useMutation({
     mutationFn: async () => (await api.post('/lessons/start')).data,
@@ -75,6 +103,17 @@ export function AttendancePage() {
   const closeMutation = useMutation({
     mutationFn: async () => lesson && (await api.post(`/lessons/${lesson.id}/close`)).data,
     onSuccess: () => { setScannerActive(false); void queryClient.invalidateQueries({ queryKey: ['lessons'] }); },
+  });
+
+  const bulkSave = useMutation({
+    mutationFn: () => {
+      if (!lesson) return Promise.resolve();
+      const items = Object.entries(scores)
+        .filter(([, score]) => score !== '')
+        .map(([enrollmentId, score]) => ({ enrollmentId, score: Number(score) }));
+      return api.put(`/lessons/${lesson.id}/grades`, { items });
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['lessons', 'active'] }),
   });
 
   const reflectAttendance = useCallback((result: AttendanceScanResult) => {
@@ -125,8 +164,14 @@ export function AttendancePage() {
       {lastError ? <div className="scan-result rounded-3 mt-3" style={{ background: 'var(--color-danger-50)' }}><XCircle size={28} color="var(--color-danger-500)" /><div><div className="fw-semibold">لم يتم التسجيل</div><div className="text-secondary small">{lastError}</div></div></div> : null}
 
       <Card className="panel mt-3">
-        <div className="panel__header"><div><h2 className="panel__title">الطلاب الحاضرون ودرجات الحصة</h2><p className="panel__subtitle">القائمة تتحدث تلقائيًا عند التسجيل من أي جهاز.</p></div><Link to={`/lessons/${lesson.id}`} className="app-button app-button--secondary">عرض التفاصيل</Link></div>
-        <div className="table-responsive"><table className="table align-middle"><thead><tr><th>الطالب</th><th>السنتر / المرحلة</th><th>وقت الحضور</th><th>الحالة</th><th>الدرجة</th></tr></thead><tbody>{lesson.rows.map((row) => <tr key={row.attendanceId}><td><Link to={`/students/${row.studentId}`} className="fw-semibold text-decoration-none">{row.fullName}</Link><div className="text-secondary small ltr-value">{row.studentCode}</div></td><td>{row.centerName}<div className="text-secondary small">{row.gradeLevel}</div></td><td>{formatDateTime(row.checkInAt)}</td><td><StatusBadge label={row.attendanceStatus === 'LATE' ? 'متأخر' : 'حاضر'} tone={row.attendanceStatus === 'LATE' ? 'warning' : 'success'} /></td><td>{lesson.assessment ? <GradeInput lessonId={lesson.id} enrollmentId={row.enrollmentId} value={row.score} maxScore={lesson.assessment.maxScore} /> : '—'}</td></tr>)}</tbody></table></div>
+        <div className="panel__header d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div><h2 className="panel__title">الطلاب الحاضرون ودرجات الحصة</h2><p className="panel__subtitle">القائمة تتحدث تلقائيًا عند التسجيل من أي جهاز.</p></div>
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            {lesson.assessment ? <MaxScoreEditor lessonId={lesson.id} assessmentId={lesson.assessment.id} maxScore={lesson.assessment.maxScore} /> : null}
+            <Link to={`/lessons/${lesson.id}`} className="app-button app-button--secondary">عرض التفاصيل</Link>
+          </div>
+        </div>
+        <div className="table-responsive"><table className="table align-middle"><thead><tr><th>الطالب</th><th>السنتر / المرحلة</th><th>وقت الحضور</th><th>الحالة</th><th>الدرجة {lesson.assessment ? `(من ${formatNumber(lesson.assessment.maxScore)})` : ''}</th></tr></thead><tbody>{lesson.rows.map((row) => <tr key={row.attendanceId}><td><Link to={`/students/${row.studentId}`} className="fw-semibold text-decoration-none">{row.fullName}</Link><div className="text-secondary small ltr-value">{row.studentCode}</div></td><td>{row.centerName}<div className="text-secondary small">{row.gradeLevel}</div></td><td>{formatDateTime(row.checkInAt)}</td><td><StatusBadge label={row.attendanceStatus === 'LATE' ? 'متأخر' : 'حاضر'} tone={row.attendanceStatus === 'LATE' ? 'warning' : 'success'} /></td><td>{lesson.assessment ? <input className="form-control form-control-sm ltr-value" style={{ width: 85 }} type="number" min={0} max={lesson.assessment.maxScore} step="0.5" value={scores[row.enrollmentId] ?? ''} onChange={(event) => setScores((prev) => ({ ...prev, [row.enrollmentId]: event.target.value }))} /> : '—'}</td></tr>)}</tbody></table></div>
 
         <div className="data-card-list p-3">{lesson.rows.map((row) => <div key={row.attendanceId} className="rounded-3 p-3" style={{ background: 'var(--surface-subtle)' }}>
           <div className="d-flex align-items-start justify-content-between gap-2">
@@ -134,10 +179,16 @@ export function AttendancePage() {
             <StatusBadge label={row.attendanceStatus === 'LATE' ? 'متأخر' : 'حاضر'} tone={row.attendanceStatus === 'LATE' ? 'warning' : 'success'} />
           </div>
           <div className="text-secondary small mt-2">{row.centerName} · {row.gradeLevel} · {formatDateTime(row.checkInAt)}</div>
-          {lesson.assessment ? <div className="mt-3"><GradeInput lessonId={lesson.id} enrollmentId={row.enrollmentId} value={row.score} maxScore={lesson.assessment.maxScore} /></div> : null}
+          {lesson.assessment ? <div className="mt-3"><label className="form-label small mb-1">الدرجة (من {formatNumber(lesson.assessment.maxScore)})</label><input className="form-control form-control-sm ltr-value" style={{ width: 100 }} type="number" min={0} max={lesson.assessment.maxScore} step="0.5" value={scores[row.enrollmentId] ?? ''} onChange={(event) => setScores((prev) => ({ ...prev, [row.enrollmentId]: event.target.value }))} /></div> : null}
         </div>)}</div>
 
         {lesson.rows.length === 0 ? <div className="text-center text-secondary py-4">لم يُسجل أي طالب بعد.</div> : null}
+        {lesson.assessment && lesson.rows.length > 0 ? (
+          <div className="d-flex justify-content-between align-items-center gap-2 mt-3">
+            {bulkSave.isError ? <span className="text-danger small">{getApiErrorMessage(bulkSave.error)}</span> : <span />}
+            <Button onClick={() => bulkSave.mutate()} disabled={bulkSave.isPending}><Save size={17} /> حفظ كل الدرجات</Button>
+          </div>
+        ) : null}
       </Card>
     </> : null}
   </>;
