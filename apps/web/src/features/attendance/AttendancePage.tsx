@@ -107,7 +107,7 @@ export function AttendancePage() {
 
   const bulkSave = useMutation({
     mutationFn: () => {
-      if (!lesson) return Promise.resolve();
+      if (!lesson) return Promise.reject(new Error('لا توجد حصة جارية.'));
       const items = Object.entries(scores)
         .filter(([, score]) => score !== '')
         .map(([enrollmentId, score]) => ({ enrollmentId, score: Number(score) }));
