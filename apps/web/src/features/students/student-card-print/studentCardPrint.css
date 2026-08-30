@@ -162,21 +162,31 @@
   position: relative;
   overflow: hidden;
   box-sizing: border-box;
-  background:
-    radial-gradient(ellipse 55% 42% at 5% 96%, rgb(0 91 255 / 70%) 0%, rgb(0 91 255 / 22%) 38%, transparent 72%),
-    radial-gradient(ellipse 40% 30% at 98% 5%, rgb(31 104 255 / 36%) 0%, transparent 72%),
-    linear-gradient(145deg, #0b2c5c 0%, #08254f 55%, #051c3f 100%);
+  background: var(--card-primary);
   color: var(--card-white);
   font-family: 'Alexandria', 'Noto Sans Arabic', Arial, sans-serif;
 }
 
-.student-id-card__glow {
+.student-id-card__background {
   position: absolute;
-  inset: -60% -10% -75% -10%;
-  background:
-    radial-gradient(circle at 8% 74%, rgb(0 95 255 / 50%), transparent 34%),
-    radial-gradient(circle at 93% 19%, rgb(26 86 214 / 24%), transparent 31%);
-  opacity: .85;
+  width: 111mm;
+  height: 71.7655mm;
+  max-width: none;
+  display: block;
+  object-fit: cover;
+  opacity: .7;
+  pointer-events: none;
+  user-select: none;
+}
+
+.student-id-card__background--front {
+  left: -10mm;
+  top: -15mm;
+}
+
+.student-id-card__background--back {
+  left: -5mm;
+  top: -19mm;
 }
 
 .student-id-card__front-outline {
@@ -192,13 +202,13 @@
 
 .student-id-card__front-copy {
   position: absolute;
-  top: 16.4mm;
-  left: 20mm;
-  width: 60mm;
+  top: 17mm;
+  left: 0;
+  width: 100mm;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2.2mm;
+  gap: 2mm;
   text-align: center;
   white-space: nowrap;
 }
@@ -212,11 +222,8 @@
 .student-id-card__front-copy span {
   font-size: 3mm;
   font-weight: 400;
-  line-height: 1;
-}
-
-.student-id-card__glow--back {
-  inset: -55% -12% -70% -12%;
+  line-height: 1.19;
+  white-space: pre;
 }
 
 .student-id-card__decor {
@@ -264,8 +271,10 @@
 }
 
 .student-id-card__student-copy span {
+  width: 100%;
   font-size: 3mm;
   font-weight: 400;
+  text-align: right;
   white-space: nowrap;
 }
 
@@ -288,13 +297,21 @@
   left: 2mm;
   width: 23mm;
   height: 24mm;
-  display: grid;
-  place-items: center;
   box-sizing: border-box;
-  padding: 1mm;
-  border: .35mm solid var(--card-primary);
+  border: .347mm solid var(--card-primary);
   border-radius: 3mm;
-  background: #fff;
+  pointer-events: none;
+}
+
+.student-id-card__qr-code {
+  position: absolute;
+  left: 3.5mm;
+  top: 5mm;
+  width: 20mm;
+  height: 20mm;
+  display: block;
+  object-fit: contain;
+  image-rendering: auto;
 }
 
 .student-id-card__qr-frame::before,
@@ -308,25 +325,18 @@
 
 .student-id-card__qr-frame::before {
   left: 4mm;
-  right: 4mm;
-  top: -.6mm;
-  height: 1.2mm;
+  top: -1mm;
+  width: 15mm;
+  height: 2mm;
+  box-shadow: 0 24mm 0 #fff;
 }
 
 .student-id-card__qr-frame::after {
   top: 5mm;
-  bottom: 5mm;
-  left: -.6mm;
-  width: 1.2mm;
+  left: -1mm;
+  width: 2mm;
+  height: 15mm;
   box-shadow: 23mm 0 0 #fff;
-}
-
-.student-id-card__qr-frame img {
-  width: 21.6mm;
-  height: 21.6mm;
-  display: block;
-  object-fit: contain;
-  image-rendering: auto;
 }
 
 .student-id-card__qr-scan,

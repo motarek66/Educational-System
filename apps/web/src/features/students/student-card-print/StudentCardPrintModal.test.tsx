@@ -62,6 +62,9 @@ describe('StudentCardPrintModal', () => {
 
     await waitFor(() => expect(loadQr).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.queryByTitle('معاينة كارت محمود احمد')).not.toBeNull());
+    expect(screen.getByText('Englisher ID')).not.toBeNull();
+    expect(screen.getByText('مستر عبداللة سيد 2027')).not.toBeNull();
+    expect(screen.getByText('الطالب: محمود احمد')).not.toBeNull();
   });
 
   it('closes from the close control', () => {

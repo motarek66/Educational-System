@@ -516,7 +516,12 @@ export class StudentsService {
       studentCode: profile.studentCode,
       qrVersion: profile.qrVersion,
       value,
-      svg: await QRCode.toString(value, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }),
+      svg: await QRCode.toString(value, {
+        type: 'svg',
+        margin: 1,
+        errorCorrectionLevel: 'M',
+        color: { dark: '#0B2C5C', light: '#FFFFFF' },
+      }),
     };
   }
 
@@ -547,7 +552,12 @@ export class StudentsService {
       studentCode: profile.studentCode,
       qrVersion: nextVersion,
       value,
-      svg: await QRCode.toString(value, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }),
+      svg: await QRCode.toString(value, {
+        type: 'svg',
+        margin: 1,
+        errorCorrectionLevel: 'M',
+        color: { dark: '#0B2C5C', light: '#FFFFFF' },
+      }),
     };
   }
 
