@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../components/ui/Button';
 import { api, getApiErrorMessage } from '../../lib/api/client';
+import type { ApiResponse } from '../../types/api';
 
 // ─── Types from /imports/students/upload response ─────────────────────────────
 type PreviewRow = {
@@ -103,11 +104,11 @@ export function StudentImportDialog({
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await api.post<UploadResponse>('/imports/students/upload', formData, {
+      const response = await api.post<ApiResponse<UploadResponse>>('/imports/students/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      setUploadResult(response.data);
+      setUploadResult(response.data.data);
       setStep('PREVIEW');
     } catch (err) {
       setGlobalError(getApiErrorMessage(err));
@@ -121,11 +122,11 @@ export function StudentImportDialog({
     setGlobalError(null);
 
     try {
-      const response = await api.post<CommitResponse>(`/imports/${uploadResult.id}/commit`);
-      setCommitResult(response.data);
+      const response = await api.post<ApiResponse<CommitResponse>>(`/imports/${uploadResult.id}/commit`);
+      setCommitResult(response.data.data);
       setStep('DONE');
 
-      if (response.data.imported > 0) {
+      if (response.data.data.imported > 0) {
         await queryClient.invalidateQueries({ queryKey: ['students'] });
       }
     } catch (err) {
