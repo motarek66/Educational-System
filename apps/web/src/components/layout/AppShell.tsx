@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
   Bell,
-  BookOpenCheck,
   Building2,
   CalendarRange,
   GraduationCap,
@@ -54,7 +53,6 @@ const primaryNav = [
   { to: '/centers', label: 'السناتر', icon: Building2 },
   { to: '/attendance', label: 'الحضور', icon: ScanLine },
   { to: '/lessons', label: 'الحصص', icon: CalendarRange },
-  { to: '/exams', label: 'الامتحانات', icon: BookOpenCheck },
   { to: '/reports', label: 'التقارير', icon: BarChart3 },
 ];
 
@@ -69,7 +67,6 @@ const routeTitles: Record<string, string> = {
   '/centers': 'السناتر',
   '/attendance': 'الحضور والحصص',
   '/lessons': 'الحصص',
-  '/exams': 'الامتحانات والدرجات',
   '/reports': 'التقارير والتصدير',
   '/supervisors': 'المشرفون والصلاحيات',
   '/settings': 'إعدادات النظام',
@@ -195,7 +192,7 @@ export function AppShell() {
         <NavLink className="mobile-nav__link" to="/" end><LayoutDashboard size={20} /><span>الرئيسية</span></NavLink>
         <NavLink className="mobile-nav__link" to="/students"><GraduationCap size={20} /><span>الطلاب</span></NavLink>
         <NavLink className="mobile-nav__link mobile-nav__link--scan" to="/attendance"><ScanLine size={24} /><span>مسح</span></NavLink>
-        <NavLink className="mobile-nav__link" to="/exams"><BookOpenCheck size={20} /><span>الامتحانات</span></NavLink>
+        <NavLink className="mobile-nav__link" to="/lessons"><CalendarRange size={20} /><span>الحصص</span></NavLink>
         <NavLink className="mobile-nav__link" to="/settings"><ShieldCheck size={20} /><span>المزيد</span></NavLink>
       </nav>
     </div>

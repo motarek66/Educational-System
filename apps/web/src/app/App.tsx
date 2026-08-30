@@ -6,8 +6,6 @@ import { ProtectedRoute } from '../features/auth/ProtectedRoute';
 import { CentersPage } from '../features/centers/CentersPage';
 import { CenterDetailsPage } from '../features/centers/CenterDetailsPage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
-import { ExamsPage } from '../features/exams/ExamsPage';
-import { GradebookPage } from '../features/exams/GradebookPage';
 import { LessonDetailsPage } from '../features/lessons/LessonDetailsPage';
 import { LessonsPage } from '../features/lessons/LessonsPage';
 import { ReportsPage } from '../features/reports/ReportsPage';
@@ -31,8 +29,6 @@ export function App() {
           <Route path="attendance" element={<AttendancePage />} />
           <Route path="lessons" element={<LessonsPage />} />
           <Route path="lessons/:lessonId" element={<LessonDetailsPage />} />
-          <Route path="exams" element={<ExamsPage />} />
-          <Route path="exams/:examId/gradebook" element={<GradebookPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="supervisors" element={<SupervisorsPage />} />
           <Route path="settings" element={<SettingsPage />} />
