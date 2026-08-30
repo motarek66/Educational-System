@@ -5,6 +5,7 @@ import { DomainError } from '../../common/errors/domain-error';
 import type { RequestUser } from '../../common/guards/auth.guard';
 import { PrismaService } from '../../database/prisma.service';
 import { ScopeService } from '../rbac/scope.service';
+import { teachingWeekContaining } from './weekly-attendance.service';
 
 type AttendanceProfile = {
   id: string;
@@ -57,26 +58,65 @@ export class AttendanceService {
         scopes: { some: { centerId: enrollment.centerId } },
       },
       orderBy: { startsAt: 'desc' },
+      include: { organization: { select: { timezone: true } } },
     });
     if (!lesson) {
       throw new DomainError('LESSON_NOT_OPEN', 'لا توجد حصة جارية متاحة لهذا الطالب. ابدأ الحصة أولًا.', HttpStatus.CONFLICT);
     }
     const lateAt = new Date(lesson.startsAt.getTime() + lesson.lateAfterMinutes * 60_000);
     const status = now > lateAt ? 'LATE' : 'PRESENT';
+    const timeZone = lesson.organization.timezone || process.env.APP_TIMEZONE || 'Africa/Cairo';
+    const week = teachingWeekContaining(now, timeZone);
+    const weekKey = week.weekStart.toISOString().slice(0, 10);
 
     try {
-      const record = await this.prisma.attendanceRecord.create({
-        data: {
-          organizationId: user.organizationId,
-          lessonId: lesson.id,
-          enrollmentId: enrollment.id,
-          studentId: profile.studentId,
-          status,
-          checkInAt: now,
-          method,
-          recordedById: user.id,
-        },
-      });
+      const record = await this.prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`attendance-week:${user.organizationId}:${profile.studentId}:${weekKey}`}))`;
+
+        const existingInLesson = await tx.attendanceRecord.findUnique({
+          where: { lessonId_enrollmentId: { lessonId: lesson.id, enrollmentId: enrollment.id } },
+          include: { recordedBy: { select: { fullName: true } } },
+        });
+        if (existingInLesson) {
+          throw new DomainError(
+            'ATTENDANCE_ALREADY_RECORDED',
+            `الطالب ${profile.student.fullName} مسجل بالفعل في هذه الحصة.`,
+            HttpStatus.CONFLICT,
+            { recordedAt: existingInLesson.checkInAt, recordedBy: existingInLesson.recordedBy.fullName },
+          );
+        }
+
+        const existingThisWeek = await tx.attendanceRecord.findFirst({
+          where: {
+            organizationId: user.organizationId,
+            studentId: profile.studentId,
+            checkInAt: { gte: week.startsAt, lt: week.endsBefore },
+          },
+          include: { lesson: { select: { id: true, title: true } } },
+          orderBy: { checkInAt: 'desc' },
+        });
+        if (existingThisWeek) {
+          throw new DomainError(
+            'WEEKLY_ATTENDANCE_ALREADY_RECORDED',
+            `الطالب ${profile.student.fullName} سجل حصته الأسبوعية بالفعل${existingThisWeek.lesson.title ? ` في «${existingThisWeek.lesson.title}»` : ''}، ولا يمكن تسجيل أكثر من حصة في الأسبوع.`,
+            HttpStatus.CONFLICT,
+            { lessonId: existingThisWeek.lesson.id, recordedAt: existingThisWeek.checkInAt },
+          );
+        }
+
+        return tx.attendanceRecord.create({
+          data: {
+            organizationId: user.organizationId,
+            lessonId: lesson.id,
+            enrollmentId: enrollment.id,
+            studentId: profile.studentId,
+            status,
+            checkInAt: now,
+            method,
+            recordedById: user.id,
+          },
+        });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
       const [present, late, expected] = await this.prisma.$transaction([
         this.prisma.attendanceRecord.count({ where: { lessonId: lesson.id, status: 'PRESENT' } }),
         this.prisma.attendanceRecord.count({ where: { lessonId: lesson.id, status: 'LATE' } }),
@@ -113,7 +153,7 @@ export class AttendanceService {
         });
         throw new DomainError(
           'ATTENDANCE_ALREADY_RECORDED',
-          'تم تسجيل حضور الطالب مسبقًا في هذه الحصة.',
+          `الطالب ${profile.student.fullName} مسجل بالفعل في هذه الحصة.`,
           HttpStatus.CONFLICT,
           { recordedAt: existing?.checkInAt, recordedBy: existing?.recordedBy.fullName },
         );
