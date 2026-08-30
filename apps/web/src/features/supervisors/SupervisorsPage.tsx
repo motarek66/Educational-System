@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckSquare, KeyRound, Plus, Save, ShieldCheck, Square, UserCog, X } from 'lucide-react';
+import { CheckSquare, Edit3, KeyRound, Plus, Save, ShieldCheck, Square, Trash2, UserCog, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ErrorState } from '../../components/feedback/ErrorState';
@@ -176,9 +176,26 @@ function PermissionsModal({ supervisor, onClose }: { supervisor: Supervisor; onC
 }
 
 export function SupervisorsPage() {
+  const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const [permsSupervisor, setPermsSupervisor] = useState<Supervisor | null>(null);
+  const [editSupervisor, setEditSupervisor] = useState<Supervisor | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const query = useQuery({ queryKey: ['users', 'supervisors'], queryFn: async () => (await api.get<ApiResponse<Supervisor[]>>('/users', { params: { type: 'supervisor' } })).data.data });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/users/${id}`),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['users', 'supervisors'] }); setDeleteError(null); },
+    onError: (error) => setDeleteError(getApiErrorMessage(error)),
+  });
+
+  const handleDelete = (supervisor: Supervisor) => {
+    if (window.confirm(`هل أنت متأكد من حذف المشرف "${supervisor.fullName}"؟ لا يمكن التراجع عن هذا الإجراء.`)) {
+      deleteMutation.mutate(supervisor.id);
+    }
+  };
+
   return (
     <>
       <PageHeader title="المشرفون والصلاحيات" subtitle="أضف المشرفين وحدد أدوارهم والسناتر المسموح بها." actions={<Button onClick={() => setAddOpen(true)}><Plus size={18} /> إضافة مشرف</Button>} />
@@ -186,6 +203,7 @@ export function SupervisorsPage() {
         <div className="col-md-6"><Card className="panel d-flex align-items-center justify-content-between"><div><div className="text-secondary small">المستخدمون النشطون</div><div className="fs-2 mt-2">{query.data?.filter((item) => item.status === 'ACTIVE').length ?? 0}</div></div><div className="metric-card__icon"><UserCog size={21} /></div></Card></div>
         <div className="col-md-6"><Card className="panel d-flex align-items-center justify-content-between"><div><div className="text-secondary small">الأدوار المخصصة</div><div className="fs-2 mt-2">{new Set(query.data?.flatMap((item) => item.roles) ?? []).size}</div></div><div className="metric-card__icon"><ShieldCheck size={21} /></div></Card></div>
       </div>
+      {deleteError ? <div className="alert alert-danger border-0 mb-3 small">{deleteError}</div> : null}
       {query.isError ? <ErrorState message={getApiErrorMessage(query.error)} onRetry={() => void query.refetch()} /> : null}
       {query.isLoading ? <Card className="skeleton" style={{ height: 400 }} /> : null}
       {!query.isLoading && !query.isError && query.data?.length === 0 ? <EmptyState title="لا يوجد مشرفون" description="أضف مشرفًا وحدد الدور والنطاق قبل إرسال بيانات الدخول." action={<Button onClick={() => setAddOpen(true)}><Plus size={18} /> إضافة مشرف</Button>} /> : null}
@@ -200,7 +218,13 @@ export function SupervisorsPage() {
                   <td>{supervisor.roles.join('، ') || <span className="text-secondary small">بدون دور</span>}</td>
                   <td>{supervisor.centers.join('، ') || <span className="text-secondary small">كل السناتر</span>}</td>
                   <td><StatusBadge label={supervisor.status === 'ACTIVE' ? 'نشط' : supervisor.status === 'INVITED' ? 'دعوة معلقة' : 'موقوف'} tone={supervisor.status === 'ACTIVE' ? 'success' : supervisor.status === 'INVITED' ? 'info' : 'danger'} /></td>
-                  <td><Button variant="ghost" onClick={() => setPermsSupervisor(supervisor)}><KeyRound size={17} /> إدارة الصلاحيات</Button></td>
+                  <td>
+                    <div className="d-flex gap-1 justify-content-end">
+                      <button className="btn btn-sm p-2" title="تعديل البيانات" onClick={() => setEditSupervisor(supervisor)}><Edit3 size={16} /></button>
+                      <button className="btn btn-sm p-2" title="إدارة الصلاحيات" onClick={() => setPermsSupervisor(supervisor)}><KeyRound size={16} /></button>
+                      <button className="btn btn-sm p-2 text-danger" title="حذف المشرف" disabled={deleteMutation.isPending} onClick={() => handleDelete(supervisor)}><Trash2 size={16} /></button>
+                    </div>
+                  </td>
                 </tr>
               ))}</tbody>
             </table>
@@ -208,6 +232,7 @@ export function SupervisorsPage() {
         </Card>
       ) : null}
       {addOpen ? <AddSupervisorModal onClose={() => setAddOpen(false)} /> : null}
+      {editSupervisor ? <AddSupervisorModal onClose={() => setEditSupervisor(null)} /> : null}
       {permsSupervisor ? <PermissionsModal supervisor={permsSupervisor} onClose={() => setPermsSupervisor(null)} /> : null}
     </>
   );

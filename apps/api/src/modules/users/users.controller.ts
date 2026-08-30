@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import type { RequestUser } from '../../common/guards/auth.guard';
@@ -19,5 +19,16 @@ export class UsersController {
   @RequirePermissions('users.create')
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateUserDto) {
     return this.usersService.create(user, dto);
+  }
+  @Patch(':id')
+  @RequirePermissions('users.update')
+  update(@CurrentUser() user: RequestUser, @Param('id') id: string, @Body() dto: Partial<CreateUserDto>) {
+    return this.usersService.update(user, id, dto);
+  }
+
+  @Delete(':id')
+  @RequirePermissions('users.delete')
+  remove(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.usersService.remove(user, id);
   }
 }
