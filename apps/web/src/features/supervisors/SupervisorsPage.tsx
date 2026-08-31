@@ -15,22 +15,26 @@ type Role = { id: string; name: string; permissions: Array<{ permission: { key: 
 type Center = { id: string; name: string };
 type Permission = { id: string; key: string; label: string };
 
+// Keys must exactly match the seed.ts permission keys in the DB
 const PERMISSION_GROUPS: Array<{ title: string; keys: string[] }> = [
-  { title: 'الطلاب', keys: ['students.view', 'students.create', 'students.update', 'students.delete', 'students.export'] },
-  { title: 'الحضور', keys: ['attendance.view', 'attendance.scan', 'attendance.update', 'attendance.delete', 'attendance.export'] },
-  { title: 'الحصص والدرجات', keys: ['lessons.view', 'lessons.start', 'lessons.close', 'lessons.grade'] },
-  { title: 'التقارير', keys: ['reports.view', 'reports.export', 'reports.print'] },
-  { title: 'المستخدمون', keys: ['users.view', 'users.create', 'users.update', 'users.delete'] },
-  { title: 'الإعدادات', keys: ['settings.view', 'settings.update', 'settings.academic_years', 'settings.backup', 'settings.permissions'] },
+  { title: 'الطلاب', keys: ['students.view', 'students.create', 'students.update', 'students.archive', 'students.delete', 'students.export'] },
+  { title: 'الحضور', keys: ['attendance.view', 'attendance.scan', 'attendance.create_manual', 'attendance.correct', 'attendance.guest'] },
+  { title: 'الحصص والدرجات', keys: ['lessons.create', 'grades.enter', 'grades.edit_draft', 'grades.edit_published', 'exams.view', 'exams.create'] },
+  { title: 'التقارير والواتساب', keys: ['reports.export', 'whatsapp.open_message', 'whatsapp.manage_templates', 'dashboard.view'] },
+  { title: 'السناتر والمستخدمون', keys: ['centers.view', 'centers.create', 'centers.delete', 'users.view', 'users.create', 'users.update'] },
 ];
 
 const PERM_LABELS: Record<string, string> = {
-  'students.view': 'عرض', 'students.create': 'إضافة', 'students.update': 'تعديل', 'students.delete': 'حذف', 'students.export': 'تصدير',
-  'attendance.view': 'عرض', 'attendance.scan': 'تسجيل حضور', 'attendance.update': 'تعديل', 'attendance.delete': 'حذف', 'attendance.export': 'تصدير',
-  'lessons.view': 'عرض', 'lessons.start': 'بدء حصة', 'lessons.close': 'إغلاق حصة', 'lessons.grade': 'إدخال درجات',
-  'reports.view': 'عرض', 'reports.export': 'تصدير', 'reports.print': 'طباعة',
-  'users.view': 'عرض', 'users.create': 'إضافة', 'users.update': 'تعديل', 'users.delete': 'حذف',
-  'settings.view': 'عرض', 'settings.update': 'تعديل', 'settings.academic_years': 'السنة الدراسية', 'settings.backup': 'النسخ الاحتياطي', 'settings.permissions': 'الصلاحيات',
+  'students.view': 'عرض', 'students.create': 'إضافة', 'students.update': 'تعديل',
+  'students.archive': 'أرشفة', 'students.delete': 'حذف', 'students.export': 'تصدير',
+  'attendance.view': 'عرض', 'attendance.scan': 'سكان QR', 'attendance.create_manual': 'تسجيل يدوي',
+  'attendance.correct': 'تصحيح', 'attendance.guest': 'حضور ضيف',
+  'lessons.create': 'إنشاء حصة', 'grades.enter': 'إدخال درجات', 'grades.edit_draft': 'تعديل مسودة',
+  'grades.edit_published': 'تعديل منشورة', 'exams.view': 'عرض الامتحانات', 'exams.create': 'إنشاء امتحان',
+  'reports.export': 'تصدير تقارير', 'whatsapp.open_message': 'إرسال واتساب', 'whatsapp.manage_templates': 'قوالب واتساب',
+  'dashboard.view': 'لوحة التحكم',
+  'centers.view': 'عرض السناتر', 'centers.create': 'إضافة سنتر', 'centers.delete': 'حذف سنتر',
+  'users.view': 'عرض المستخدمين', 'users.create': 'إضافة مستخدم', 'users.update': 'تعديل مستخدم',
 };
 
 function AddSupervisorModal({ onClose }: { onClose: () => void }) {
@@ -89,6 +93,102 @@ function AddSupervisorModal({ onClose }: { onClose: () => void }) {
           <div className="modal-footer border-top px-4 py-3 d-flex justify-content-between">
             {mutation.isError ? <span className="text-danger small">{getApiErrorMessage(mutation.error)}</span> : <span />}
             <div className="d-flex gap-2"><Button type="button" variant="ghost" onClick={onClose}>إلغاء</Button><Button type="submit" loading={mutation.isPending}><Plus size={17} /> إضافة المشرف</Button></div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Edit Supervisor Modal (pre-fills existing data) ───────────────────────────
+function EditSupervisorModal({ supervisor, onClose }: { supervisor: Supervisor; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const rolesQuery = useQuery({ queryKey: ['roles'], queryFn: async () => (await api.get<ApiResponse<Role[]>>('/roles')).data.data });
+  const centersQuery = useQuery({ queryKey: ['centers'], queryFn: async () => (await api.get<ApiResponse<Center[]>>('/centers')).data.data });
+
+  const initialRoleId = rolesQuery.data?.find((r) => supervisor.roles.includes(r.name))?.id ?? '';
+  const initialCenterIds = centersQuery.data?.filter((c) => supervisor.centers.includes(c.name)).map((c) => c.id) ?? [];
+
+  const [fullName, setFullName] = useState(supervisor.fullName);
+  const [email, setEmail] = useState(supervisor.email ?? '');
+  const [password, setPassword] = useState('');
+  const [selectedRoleId, setSelectedRoleId] = useState('');
+  const [selectedCenterIds, setSelectedCenterIds] = useState<string[]>([]);
+  const [rolesReady, setRolesReady] = useState(false);
+  const [centersReady, setCentersReady] = useState(false);
+
+  // Pre-fill role once roles are loaded
+  useEffect(() => {
+    if (rolesQuery.data && !rolesReady) {
+      const rid = rolesQuery.data.find((r) => supervisor.roles.includes(r.name))?.id ?? '';
+      setSelectedRoleId(rid);
+      setRolesReady(true);
+    }
+  }, [rolesQuery.data, rolesReady, supervisor.roles]);
+
+  // Pre-fill centers once centers are loaded
+  useEffect(() => {
+    if (centersQuery.data && !centersReady) {
+      const cids = centersQuery.data.filter((c) => supervisor.centers.includes(c.name)).map((c) => c.id);
+      setSelectedCenterIds(cids);
+      setCentersReady(true);
+    }
+  }, [centersQuery.data, centersReady, supervisor.centers]);
+
+  const mutation = useMutation({
+    mutationFn: () => api.patch(`/users/${supervisor.id}`, {
+      fullName: fullName.trim(),
+      email: email.trim() || undefined,
+      ...(password ? { temporaryPassword: password } : {}),
+      roleIds: selectedRoleId ? [selectedRoleId] : [],
+      centerIds: selectedCenterIds,
+    }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['users', 'supervisors'] }); onClose(); },
+  });
+
+  const toggleCenter = (id: string) => setSelectedCenterIds((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
+
+  return (
+    <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+      <div className="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <form className="modal-content border-0 rounded-4 shadow" onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
+          <div className="modal-header border-bottom px-4 py-3">
+            <div className="d-flex align-items-center gap-2"><Edit3 className="text-primary" size={22} /><h5 className="modal-title fw-bold mb-0">تعديل بيانات المشرف</h5></div>
+            <button type="button" className="btn-close m-0" onClick={onClose} />
+          </div>
+          <div className="modal-body p-4">
+            <div className="row g-3">
+              <div className="col-md-6"><label className="form-label">الاسم الكامل *</label><input className="form-control" required value={fullName} onChange={(e) => setFullName(e.target.value)} /></div>
+              <div className="col-md-6"><label className="form-label">البريد الإلكتروني</label><input className="form-control ltr-value" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+              <div className="col-md-6">
+                <label className="form-label">كلمة مرور جديدة <span className="text-muted small">(اختياري)</span></label>
+                <input className="form-control ltr-value" type="text" minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="اتركه فارغاً إذا لم تريد التغيير" />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">الدور</label>
+                <select className="form-select" value={selectedRoleId} onChange={(e) => setSelectedRoleId(e.target.value)}>
+                  <option value="">-- بدون دور --</option>
+                  {rolesQuery.data?.filter((r) => r.name !== 'SUPER_ADMIN').map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              </div>
+              <div className="col-12">
+                <label className="form-label">السناتر المتاحة</label>
+                <div className="d-flex flex-wrap gap-2 p-3 rounded-3" style={{ background: 'var(--surface-subtle)' }}>
+                  {centersQuery.isLoading ? <span className="text-secondary small">جاري التحميل...</span> : null}
+                  {centersQuery.data?.map((center) => (
+                    <label key={center.id} className={`d-flex align-items-center gap-2 px-3 py-2 rounded-3 border small fw-semibold ${selectedCenterIds.includes(center.id) ? 'bg-primary text-white border-primary' : 'bg-white text-secondary'}`} style={{ cursor: 'pointer' }}>
+                      <input type="checkbox" className="d-none" checked={selectedCenterIds.includes(center.id)} onChange={() => toggleCenter(center.id)} />{center.name}
+                    </label>
+                  ))}
+                  {centersQuery.data?.length === 0 ? <span className="text-secondary small">لا توجد سناتر.</span> : null}
+                </div>
+                {selectedCenterIds.length === 0 && <div className="form-text">إذا لم تحدد سنتراً، سيتمكن المشرف من الوصول لكل السناتر.</div>}
+              </div>
+            </div>
+          </div>
+          <div className="modal-footer border-top px-4 py-3 d-flex justify-content-between">
+            {mutation.isError ? <span className="text-danger small">{getApiErrorMessage(mutation.error)}</span> : <span />}
+            <div className="d-flex gap-2"><Button type="button" variant="ghost" onClick={onClose}>إلغاء</Button><Button type="submit" loading={mutation.isPending}><Save size={17} /> حفظ التعديلات</Button></div>
           </div>
         </form>
       </div>
@@ -232,7 +332,7 @@ export function SupervisorsPage() {
         </Card>
       ) : null}
       {addOpen ? <AddSupervisorModal onClose={() => setAddOpen(false)} /> : null}
-      {editSupervisor ? <AddSupervisorModal onClose={() => setEditSupervisor(null)} /> : null}
+      {editSupervisor ? <EditSupervisorModal supervisor={editSupervisor} onClose={() => setEditSupervisor(null)} /> : null}
       {permsSupervisor ? <PermissionsModal supervisor={permsSupervisor} onClose={() => setPermsSupervisor(null)} /> : null}
     </>
   );

@@ -48,12 +48,12 @@ const notificationLabels: Record<string, string> = {
 
 
 const primaryNav = [
-  { to: '/', label: 'الرئيسية', icon: LayoutDashboard },
-  { to: '/students', label: 'الطلاب', icon: GraduationCap },
-  { to: '/centers', label: 'السناتر', icon: Building2 },
-  { to: '/attendance', label: 'الحضور', icon: ScanLine },
-  { to: '/lessons', label: 'الحصص', icon: CalendarRange },
-  { to: '/reports', label: 'التقارير', icon: BarChart3 },
+  { to: '/', label: 'الرئيسية', icon: LayoutDashboard, requiredPermission: 'dashboard.view' },
+  { to: '/students', label: 'الطلاب', icon: GraduationCap, requiredPermission: 'students.view' },
+  { to: '/centers', label: 'السناتر', icon: Building2, requiredPermission: 'centers.view' },
+  { to: '/attendance', label: 'الحضور', icon: ScanLine, requiredPermission: 'attendance.view' },
+  { to: '/lessons', label: 'الحصص', icon: CalendarRange, requiredPermission: 'lessons.create' },
+  { to: '/reports', label: 'التقارير', icon: BarChart3, requiredPermission: 'reports.export' },
 ];
 
 const secondaryNav = [
@@ -179,7 +179,7 @@ export function AppShell() {
           <div className="sidebar__brand-mark"><GraduationCap size={23} /></div>
         </div>
         <nav className="sidebar__nav">
-          <ul className="sidebar__list">{primaryNav.map((item) => <SideNavLink key={item.to} {...item} />)}</ul>
+          <ul className="sidebar__list">{primaryNav.filter((item) => user?.isSuperAdmin || can(user, item.requiredPermission)).map((item) => <SideNavLink key={item.to} {...item} />)}</ul>
           <ul className="sidebar__list">
             {secondaryNav.filter((item) => !item.adminOnly || user?.isSuperAdmin).map((item) => <SideNavLink key={item.to} {...item} />)}
             <li><a className="sidebar__link" href="#help" title="المساعدة"><HelpCircle size={20} /><span>المساعدة</span></a></li>
