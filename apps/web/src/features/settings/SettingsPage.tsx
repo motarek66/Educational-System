@@ -4,7 +4,6 @@ import {
   CalendarRange,
   CheckCircle2,
   DatabaseBackup,
-  KeyRound,
   MessageSquare,
   Save,
   Settings2,
@@ -18,9 +17,8 @@ import type { ApiResponse } from '../../types/api';
 import { WhatsAppTemplatesManager } from '../whatsapp/WhatsAppTemplatesManager';
 import { AcademicYearsManager } from './AcademicYearsManager';
 import { BackupManager } from './BackupManager';
-import { RolesPermissionsManager } from './RolesPermissionsManager';
 
-type SettingsTab = 'GENERAL' | 'ACADEMIC_YEARS' | 'ROLES' | 'BACKUP' | 'WHATSAPP';
+type SettingsTab = 'GENERAL' | 'ACADEMIC_YEARS' | 'BACKUP' | 'WHATSAPP';
 
 type SettingsPayload = {
   organizationName: string;
@@ -77,7 +75,7 @@ export function SettingsPage() {
     <>
       <PageHeader
         title="إعدادات النظام"
-        subtitle="الإعدادات العامة، السنة الدراسية، الأدوار والصلاحيات، النسخ الاحتياطي وقواعد الحضور وقوالب واتساب."
+        subtitle="الإعدادات العامة، السنة الدراسية، النسخ الاحتياطي وقواعد الحضور وقوالب واتساب."
         actions={
           activeTab === 'GENERAL' ? (
             <Button onClick={handleSaveAll}>
@@ -119,17 +117,6 @@ export function SettingsPage() {
         >
           <CalendarRange size={16} />
           <span>السنة الدراسية</span>
-        </button>
-
-        <button
-          type="button"
-          className={`btn ${
-            activeTab === 'ROLES' ? 'btn-primary' : 'btn-light'
-          } rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2`}
-          onClick={() => setActiveTab('ROLES')}
-        >
-          <KeyRound size={16} />
-          <span>الأدوار والصلاحيات</span>
         </button>
 
         <button
@@ -413,13 +400,6 @@ export function SettingsPage() {
                   badge: '2026/2027',
                 },
                 {
-                  tab: 'ROLES' as SettingsTab,
-                  icon: KeyRound,
-                  title: 'الأدوار والصلاحيات',
-                  description: 'إدارة 5 أدوار وPermissions ونطاقات السناتر',
-                  badge: '5 أدوار',
-                },
-                {
                   tab: 'BACKUP' as SettingsTab,
                   icon: DatabaseBackup,
                   title: 'النسخ الاحتياطي',
@@ -463,10 +443,6 @@ export function SettingsPage() {
 
       {activeTab === 'ACADEMIC_YEARS' && (
         <AcademicYearsManager onBack={() => setActiveTab('GENERAL')} />
-      )}
-
-      {activeTab === 'ROLES' && (
-        <RolesPermissionsManager onBack={() => setActiveTab('GENERAL')} />
       )}
 
       {activeTab === 'BACKUP' && <BackupManager onBack={() => setActiveTab('GENERAL')} />}
